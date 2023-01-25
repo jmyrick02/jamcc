@@ -4,7 +4,7 @@
 
 #include "token.h"
 
-const int MAX_INTEGER_LITERAL_DIGITS = 19; // taken from Purple - why? TODO
+const int MAX_INTEGER_LITERAL_DIGITS = 19;
 
 // Get next valid character from file
 char next(FILE* fp) {
@@ -42,31 +42,27 @@ int scan_integer_literal(FILE* fp, char c) {
 	return atoi(integer_buffer);
 }
 
-// Scan into the next token
-int scan(FILE* fp, Token* currentToken) {
-	char c = next_nonwhitespace(fp);
+// Scan into new token
+Token scan(FILE* fp) {
+	Token token;
 
-	// Check for end of file
-	/*
-	if (c == '') {
-		return 0;
-	}
-	*/
+	char c = next_nonwhitespace(fp);
 
 	switch (c) {
 		case EOF:
-			return 0;
+			token.type = END;
+			break;
 		case '+':
-			currentToken->type = PLUS;
+			token.type = PLUS;
 			break;
 		case '-':
-			currentToken->type = MINUS;
+			token.type = MINUS;
 			break;
 		case '*':
-			currentToken->type = STAR;
+			token.type = STAR;
 			break;
 		case '/':
-			currentToken->type = SLASH;
+			token.type = SLASH;
 			break;
 		case '0':
 		case '1':
@@ -78,15 +74,15 @@ int scan(FILE* fp, Token* currentToken) {
 		case '7':
 		case '8':
 		case '9':
-			currentToken->type = INTEGER_LITERAL;
-			currentToken->value = scan_integer_literal(fp, c);
+			token.type = INTEGER_LITERAL;
+			token.value = scan_integer_literal(fp, c);
 			break;
 		default:
-			currentToken->type = UNKNOWN_TOKEN;
+			printf("ERROR: invalid token '%c'\n]", c);
 			break;
 	}
-
-	return 1;
+	
+	return token;
 }
 
 int main(int argc, char *argv[]) {
@@ -105,13 +101,14 @@ int main(int argc, char *argv[]) {
 
 	// Scan file and print out its Tokens
 	Token token; 
+	do {
+		token = scan(fp);
 
-	while (scan(fp, &token)) {
 		printf("Token type: %s", TOKENTYPE_STRING[token.type]);
 		if (token.type == INTEGER_LITERAL) {
 			printf("\nToken value: ");
 			printf("%d", token.value);
 		}
 		printf("\n\n");
-	}
+	} while (token.type != END);
 }

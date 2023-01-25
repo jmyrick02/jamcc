@@ -1,19 +1,19 @@
 typedef enum {
-	UNKNOWN_TOKEN = 0, 
-	PLUS, 
+	PLUS = 0, 
 	MINUS, 
 	STAR, 
 	SLASH, 
-	INTEGER_LITERAL
+	INTEGER_LITERAL,
+	END
 } TokenType;
 
 static const char* TOKENTYPE_STRING[] = {
-	"unknown token", // UNKNOWN_TOKEN
 	"+", // PLUS
 	"-", // MINUS
 	"*", // STAR
 	"/", // SLASH
-	"integer literal" // INTEGER_LITERAL
+	"integer literal", // INTEGER_LITERAL
+	"EOF", // END
 };
 
 typedef struct Token {
