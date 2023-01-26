@@ -1,8 +1,7 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "token.h"
+#include "../include/scan.h"
 
 const int MAX_INTEGER_LITERAL_DIGITS = 19;
 
@@ -14,7 +13,7 @@ char next(FILE* fp) {
 }
 
 // Gets the next non-whitespace character from file
-char next_nonwhitespace(FILE* fp) {
+char nextNonWhitespace(FILE* fp) {
 	char c;
 
 	do {
@@ -25,7 +24,7 @@ char next_nonwhitespace(FILE* fp) {
 }
 
 // Scan integer literals into int objects
-int scan_integer_literal(FILE* fp, char c) {
+int scanIntegerLiteral(FILE* fp, char c) {
 	char integer_buffer[MAX_INTEGER_LITERAL_DIGITS + 1];
 	int buffer_index = 0;
 
@@ -46,7 +45,7 @@ int scan_integer_literal(FILE* fp, char c) {
 Token scan(FILE* fp) {
 	Token token;
 
-	char c = next_nonwhitespace(fp);
+	char c = nextNonWhitespace(fp);
 
 	switch (c) {
 		case EOF:
@@ -75,40 +74,14 @@ Token scan(FILE* fp) {
 		case '8':
 		case '9':
 			token.type = INTEGER_LITERAL;
-			token.value = scan_integer_literal(fp, c);
+			token.val = scanIntegerLiteral(fp, c);
 			break;
 		default:
-			printf("ERROR: invalid token '%c'\n]", c);
+			printf("ERROR: invalid token '%c'\n", c);
+			token.type = UNKNOWN;
 			break;
 	}
 	
 	return token;
 }
 
-int main(int argc, char *argv[]) {
-	if (argc < 2) {
-		printf("ERROR - you didn't pass in an input file path!\n");
-		return 0;
-	}
-	char* filepath = argv[1];
-
-	FILE* fp = fopen(filepath, "r");
-	if (fp == NULL) {
-		printf("ERROR - failed to open file at ");
-		printf(filepath);
-		printf("\n");
-	}
-
-	// Scan file and print out its Tokens
-	Token token; 
-	do {
-		token = scan(fp);
-
-		printf("Token type: %s", TOKENTYPE_STRING[token.type]);
-		if (token.type == INTEGER_LITERAL) {
-			printf("\nToken value: ");
-			printf("%d", token.value);
-		}
-		printf("\n\n");
-	} while (token.type != END);
-}
