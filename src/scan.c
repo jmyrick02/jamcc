@@ -4,34 +4,35 @@
 #include "../include/scan.h"
 #include "../include/lib/logging.h"
 
+FILE* GLOBAL_FILE_POINTER;
 Token GLOBAL_TOKEN;
 
 const int MAX_INTEGER_LITERAL_DIGITS = 19;
 
 // Get next valid character from file
-char next(FILE* fp) {
-	char c = fgetc(fp);
+char next() {
+	char c = fgetc(GLOBAL_FILE_POINTER);
 
 	return c;
 }
 
 // Gets the next non-whitespace character from file
-char nextNonWhitespace(FILE* fp) {
+char nextNonWhitespace() {
 	char c;
 
 	do {
-		c = next(fp);
+		c = next(GLOBAL_FILE_POINTER);
 	} while (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f');
 
 	return c;
 }
 
-void scanBitshiftOperator(FILE* fp) {
-	next(fp);
+void scanBitshiftOperator() {
+	next(GLOBAL_FILE_POINTER);
 }
 
 // Scan integer literals into int objects
-int scanIntegerLiteral(FILE* fp, char c) {
+int scanIntegerLiteral(char c) {
 	char integer_buffer[MAX_INTEGER_LITERAL_DIGITS + 1];
 	int buffer_index = 0;
 
@@ -39,20 +40,20 @@ int scanIntegerLiteral(FILE* fp, char c) {
 	while (buffer_index < MAX_INTEGER_LITERAL_DIGITS && c - '0' >= 0 && c - '9' <= 0) {
 		integer_buffer[buffer_index] = c;
 		buffer_index++;
-		c = next(fp);
+		c = next(GLOBAL_FILE_POINTER);
 	}
 
 	// Put back non-integer character
-	ungetc(c, fp);
+	ungetc(c, GLOBAL_FILE_POINTER);
 
 	return atoi(integer_buffer);
 }
 
 // Scan into GLOBAL_TOKEN
-void scan(FILE* fp) {
+void scan() {
 	Token token;
 
-	char c = nextNonWhitespace(fp);
+	char c = nextNonWhitespace(GLOBAL_FILE_POINTER);
 
 	switch (c) {
 		case EOF:
@@ -72,11 +73,11 @@ void scan(FILE* fp) {
 			break;
 		case '<':
 			token.type = BITSHIFT_LEFT;
-			scanBitshiftOperator(fp);
+			scanBitshiftOperator(GLOBAL_FILE_POINTER);
 			break;
 		case '>':
 			token.type = BITSHIFT_RIGHT;
-			scanBitshiftOperator(fp);
+			scanBitshiftOperator(GLOBAL_FILE_POINTER);
 			break;
 		case '0':
 		case '1':
@@ -89,7 +90,7 @@ void scan(FILE* fp) {
 		case '8':
 		case '9':
 			token.type = INTEGER_LITERAL;
-			token.val = scanIntegerLiteral(fp, c);
+			token.val = scanIntegerLiteral(c);
 			break;
 		default:
 			fatal(RC_ERROR, "Invalid token '%c'", c);

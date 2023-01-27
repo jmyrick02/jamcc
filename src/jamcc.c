@@ -3,6 +3,8 @@
 #include "../include/parsing/expression.h"
 #include "../include/lib/logging.h"
 
+extern FILE* GLOBAL_FILE_POINTER;
+
 int evaluate(ASTNode* root) {
 	int leftVal, rightVal;
 
@@ -40,12 +42,14 @@ int main(int argc, char *argv[]) {
 	}
 	char* filepath = argv[1];
 
-	FILE* fp = fopen(filepath, "r");
-	if (fp == NULL) {
+	GLOBAL_FILE_POINTER = fopen(filepath, "r");
+	if (GLOBAL_FILE_POINTER == NULL) {
 		fatal(RC_ERROR, "Failed to open file at %s", filepath);
 	}
 
-	scan(fp);
-	ASTNode* parsedBinaryExpression = parseBinaryExpression(fp);
+	scan();
+	ASTNode* parsedBinaryExpression = parseBinaryExpression();
 	printf("%d\n", evaluate(parsedBinaryExpression));
+	
+	fclose(GLOBAL_FILE_POINTER);
 }

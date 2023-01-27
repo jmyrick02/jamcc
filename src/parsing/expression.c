@@ -1,10 +1,11 @@
 #include "../../include/parsing/expression.h"
 #include "../../include/lib/logging.h"
 
+extern FILE* GLOBAL_FILE_POINTER;
 extern Token GLOBAL_TOKEN;
 
 // Precondition: terminal node token is scanned
-ASTNode* parseTerminalNode(FILE* fp) {
+ASTNode* parseTerminalNode() {
 	ASTNode* result = malloc(sizeof(ASTNode));
 
 	if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
@@ -28,15 +29,15 @@ int checkPrecedence(TokenType tokenType) {
 	return PRECEDENCE[tokenType];
 }
 
-ASTNode* prattParse(FILE* fp, int prevPrecedence) {
-	ASTNode* left = parseTerminalNode(fp);
-	scan(fp);
+ASTNode* prattParse(int prevPrecedence) {
+	ASTNode* left = parseTerminalNode();
+	scan();
 	
 	TokenType tokenType = GLOBAL_TOKEN.type;
 	while (tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
-		scan(fp);
+		scan();
 
-		ASTNode* right = prattParse(fp, PRECEDENCE[tokenType]);
+		ASTNode* right = prattParse(PRECEDENCE[tokenType]);
 
 		// Join right subtree with current left subtree
 		ASTNode* newLeft = malloc(sizeof(ASTNode));
@@ -53,6 +54,6 @@ ASTNode* prattParse(FILE* fp, int prevPrecedence) {
 	return left;
 }
 
-ASTNode* parseBinaryExpression(FILE* fp) {
-	return prattParse(fp, -1);
+ASTNode* parseBinaryExpression() {
+	return prattParse(-1);
 }

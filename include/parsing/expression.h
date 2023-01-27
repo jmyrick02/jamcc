@@ -3,4 +3,4 @@
 
 #include "../scan.h"
 
-ASTNode* parseBinaryExpression(FILE* fp);
+ASTNode* parseBinaryExpression();
