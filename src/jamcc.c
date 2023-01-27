@@ -22,6 +22,10 @@ int evaluate(ASTNode* root) {
 			return leftVal * rightVal;
 		case SLASH:
 			return leftVal / rightVal;
+		case BITSHIFT_LEFT:
+			return leftVal << rightVal;
+		case BITSHIFT_RIGHT:
+			return leftVal >> rightVal;
 		case INTEGER_LITERAL:
 			return root->token.val;
 		default:

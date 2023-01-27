@@ -26,6 +26,10 @@ char nextNonWhitespace(FILE* fp) {
 	return c;
 }
 
+void scanBitshiftOperator(FILE* fp) {
+	next(fp);
+}
+
 // Scan integer literals into int objects
 int scanIntegerLiteral(FILE* fp, char c) {
 	char integer_buffer[MAX_INTEGER_LITERAL_DIGITS + 1];
@@ -66,6 +70,14 @@ void scan(FILE* fp) {
 		case '/':
 			token.type = SLASH;
 			break;
+		case '<':
+			token.type = BITSHIFT_LEFT;
+			scanBitshiftOperator(fp);
+			break;
+		case '>':
+			token.type = BITSHIFT_RIGHT;
+			scanBitshiftOperator(fp);
+			break;
 		case '0':
 		case '1':
 		case '2':
@@ -80,7 +92,7 @@ void scan(FILE* fp) {
 			token.val = scanIntegerLiteral(fp, c);
 			break;
 		default:
-			fatal(RC_ERROR, "Invalid token '%c'\n", c);
+			fatal(RC_ERROR, "Invalid token '%c'", c);
 			break;
 	}
 	

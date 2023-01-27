@@ -3,17 +3,21 @@ typedef enum {
 	MINUS, 
 	STAR, 
 	SLASH, 
+	BITSHIFT_LEFT,
+	BITSHIFT_RIGHT,
 	INTEGER_LITERAL,
 	END
 } TokenType;
 
 static const int PRECEDENCE[] = {
-	0, // PLUS
-	0, // MINUS
-	1, // STAR
-	1, // SLASH
-	-1, //INTEGER_LITERAL
+	1, // PLUS
+	1, // MINUS
+	2, // STAR
+	2, // SLASH
+	0, // BITSHIFT_LEFT
+	0, // BITSHIFT_RIGHT
 	-1, // INTEGER_LITERAL
+	-1, // END 
 };
 
 static const char* TOKENTYPE_STRING[] = {
@@ -21,6 +25,8 @@ static const char* TOKENTYPE_STRING[] = {
 	"-", // MINUS
 	"*", // STAR
 	"/", // SLASH
+	"<<", // BITSHIFT_LEFT
+	">>", // BITSHIFT_RIGHT
 	"integer literal", // INTEGER_LITERAL
 	"EOF", // END
 };
