@@ -3,6 +3,8 @@
 
 #include "../include/scan.h"
 
+Token GLOBAL_TOKEN;
+
 const int MAX_INTEGER_LITERAL_DIGITS = 19;
 
 // Get next valid character from file
@@ -41,8 +43,8 @@ int scanIntegerLiteral(FILE* fp, char c) {
 	return atoi(integer_buffer);
 }
 
-// Scan into new token
-Token scan(FILE* fp) {
+// Scan into GLOBAL_TOKEN
+void scan(FILE* fp) {
 	Token token;
 
 	char c = nextNonWhitespace(fp);
@@ -82,6 +84,6 @@ Token scan(FILE* fp) {
 			break;
 	}
 	
-	return token;
+	GLOBAL_TOKEN = token;
 }
 

@@ -8,5 +8,5 @@ typedef struct ASTNode {
 	struct ASTNode* right;
 } ASTNode;
 
-Token scan(FILE* fp);
+void scan(FILE* fp);
 

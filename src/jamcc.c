@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
 		printf("ERROR: failed to open file at %s\n", filepath);
 	}
 
+	scan(fp);
 	ASTNode* parsedBinaryExpression = parseBinaryExpression(fp);
 	printf("%d\n", evaluate(parsedBinaryExpression));
 }

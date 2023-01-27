@@ -1,39 +1,58 @@
 #include "../../include/parsing/expression.h"
 
+extern Token GLOBAL_TOKEN;
+
+// Precondition: terminal node token is scanned
 ASTNode* parseTerminalNode(FILE* fp) {
-	Token token = scan(fp);
 	ASTNode* result = malloc(sizeof(ASTNode));
 
-	if (token.type != INTEGER_LITERAL) {
-		printf("ERROR: Expected integer literal but encountered %s", TOKENTYPE_STRING[token.type]);
+	if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
+		printf("ERROR: Expected integer literal but encountered %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
 		return result;
 	}
 
 	// Create a leaf node
-	result->token = token;
+	result->token = GLOBAL_TOKEN;
 	result->left = NULL;
 	result->right = NULL;
 
 	return result;
 }
 
-ASTNode* parseBinaryExpression(FILE* fp) {
-	ASTNode* left = parseTerminalNode(fp);
-
-	Token operatorToken = scan(fp);
-	if (operatorToken.type == END) {
-		return left;
+// Also checks for errors
+int checkPrecedence(TokenType tokenType) {
+	if (PRECEDENCE[tokenType] == -1) {
+		printf("ERROR: Expected operator but encountered %s\n", TOKENTYPE_STRING[tokenType]);
 	}
 
-	// A well-formed expression will have an operator token in the operatorToken if not END
-	// Now parse the right (we have the left and middle)
-	ASTNode* right = parseBinaryExpression(fp);
-
-	ASTNode* result = malloc(sizeof(ASTNode));
-	result->token = operatorToken;
-	result->left = left;
-	result->right = right;
-
-	return result;
+	return PRECEDENCE[tokenType];
 }
 
+ASTNode* prattParse(FILE* fp, int prevPrecedence) {
+	ASTNode* left = parseTerminalNode(fp);
+	scan(fp);
+	
+	TokenType tokenType = GLOBAL_TOKEN.type;
+	while (tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
+		scan(fp);
+
+		ASTNode* right = prattParse(fp, PRECEDENCE[tokenType]);
+
+		// Join right subtree with current left subtree
+		ASTNode* newLeft = malloc(sizeof(ASTNode));
+		Token newToken;
+		newToken.type = tokenType;
+		newLeft->token = newToken;
+		newLeft->left = left;
+		newLeft->right = right;
+		left = newLeft;
+
+		tokenType = GLOBAL_TOKEN.type;
+	}
+
+	return left;
+}
+
+ASTNode* parseBinaryExpression(FILE* fp) {
+	return prattParse(fp, -1);
+}

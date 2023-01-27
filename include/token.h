@@ -8,6 +8,16 @@ typedef enum {
 	END
 } TokenType;
 
+static const int PRECEDENCE[] = {
+	-1, // UNKNOWN
+	0, // PLUS
+	0, // MINUS
+	1, // STAR
+	1, // SLASH
+	-1, //INTEGER_LITERAL
+	-1, // INTEGER_LITERAL
+};
+
 static const char* TOKENTYPE_STRING[] = {
 	"unknown token", // UNKNOWN
 	"+", // PLUS
@@ -22,3 +32,4 @@ typedef struct Token {
 	TokenType type;
 	int val;
 } Token;
+
