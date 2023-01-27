@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "../include/scan.h"
+#include "../include/lib/logging.h"
 
 Token GLOBAL_TOKEN;
 
@@ -79,8 +80,7 @@ void scan(FILE* fp) {
 			token.val = scanIntegerLiteral(fp, c);
 			break;
 		default:
-			printf("ERROR: invalid token '%c'\n", c);
-			token.type = UNKNOWN;
+			fatal(RC_ERROR, "Invalid token '%c'\n", c);
 			break;
 	}
 	

@@ -1,4 +1,5 @@
 #include "../../include/parsing/expression.h"
+#include "../../include/lib/logging.h"
 
 extern Token GLOBAL_TOKEN;
 
@@ -7,8 +8,7 @@ ASTNode* parseTerminalNode(FILE* fp) {
 	ASTNode* result = malloc(sizeof(ASTNode));
 
 	if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
-		printf("ERROR: Expected integer literal but encountered %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
-		return result;
+		fatal(RC_ERROR, "Expected integer literal but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
 	}
 
 	// Create a leaf node
@@ -22,7 +22,7 @@ ASTNode* parseTerminalNode(FILE* fp) {
 // Also checks for errors
 int checkPrecedence(TokenType tokenType) {
 	if (PRECEDENCE[tokenType] == -1) {
-		printf("ERROR: Expected operator but encountered %s\n", TOKENTYPE_STRING[tokenType]);
+		fatal(RC_ERROR, "Expected operator but encountered %s", TOKENTYPE_STRING[tokenType]); 
 	}
 
 	return PRECEDENCE[tokenType];

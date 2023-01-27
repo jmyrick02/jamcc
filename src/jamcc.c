@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "../include/parsing/expression.h"
+#include "../include/lib/logging.h"
 
 int evaluate(ASTNode* root) {
 	int leftVal, rightVal;
@@ -24,21 +25,20 @@ int evaluate(ASTNode* root) {
 		case INTEGER_LITERAL:
 			return root->token.val;
 		default:
-			printf("ERROR: encountered bad operand\n");
+			fatal(RC_ERROR, "Encountered bad operand while evaluating expression");
 			return -1;
 	}
 }
 
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
-		printf("ERROR: you didn't pass in an input file path!\n");
-		return 0;
+		fatal(RC_ERROR, "You didn't pass in an input file path");
 	}
 	char* filepath = argv[1];
 
 	FILE* fp = fopen(filepath, "r");
 	if (fp == NULL) {
-		printf("ERROR: failed to open file at %s\n", filepath);
+		fatal(RC_ERROR, "Failed to open file at %s", filepath);
 	}
 
 	scan(fp);

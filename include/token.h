@@ -1,6 +1,5 @@
 typedef enum {
-	UNKNOWN = 0,
-	PLUS, 
+	PLUS = 0, 
 	MINUS, 
 	STAR, 
 	SLASH, 
@@ -9,7 +8,6 @@ typedef enum {
 } TokenType;
 
 static const int PRECEDENCE[] = {
-	-1, // UNKNOWN
 	0, // PLUS
 	0, // MINUS
 	1, // STAR
@@ -19,7 +17,6 @@ static const int PRECEDENCE[] = {
 };
 
 static const char* TOKENTYPE_STRING[] = {
-	"unknown token", // UNKNOWN
 	"+", // PLUS
 	"-", // MINUS
 	"*", // STAR
