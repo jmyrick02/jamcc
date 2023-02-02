@@ -21,14 +21,14 @@ char nextNonWhitespace() {
 	char c;
 
 	do {
-		c = next(GLOBAL_FILE_POINTER);
+		c = next();
 	} while (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f');
 
 	return c;
 }
 
 void scanBitshiftOperator() {
-	next(GLOBAL_FILE_POINTER);
+	next();
 }
 
 // Scan integer literals into int objects
@@ -40,7 +40,7 @@ int scanIntegerLiteral(char c) {
 	while (buffer_index < MAX_INTEGER_LITERAL_DIGITS && c - '0' >= 0 && c - '9' <= 0) {
 		integer_buffer[buffer_index] = c;
 		buffer_index++;
-		c = next(GLOBAL_FILE_POINTER);
+		c = next();
 	}
 
 	// Put back non-integer character
@@ -53,7 +53,7 @@ int scanIntegerLiteral(char c) {
 void scan() {
 	Token token;
 
-	char c = nextNonWhitespace(GLOBAL_FILE_POINTER);
+	char c = nextNonWhitespace();
 
 	switch (c) {
 		case EOF:
@@ -73,11 +73,11 @@ void scan() {
 			break;
 		case '<':
 			token.type = BITSHIFT_LEFT;
-			scanBitshiftOperator(GLOBAL_FILE_POINTER);
+			scanBitshiftOperator();
 			break;
 		case '>':
 			token.type = BITSHIFT_RIGHT;
-			scanBitshiftOperator(GLOBAL_FILE_POINTER);
+			scanBitshiftOperator();
 			break;
 		case '0':
 		case '1':
