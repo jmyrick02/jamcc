@@ -54,3 +54,4 @@ dkms.conf
 
 # LLVM IR Output
 *.ll
+a.out
