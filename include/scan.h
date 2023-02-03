@@ -2,6 +2,7 @@
 
 #include "token.h"
 
+#pragma once
 typedef struct ASTNode {
 	Token token;
 	struct ASTNode* left;
