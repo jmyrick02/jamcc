@@ -8,8 +8,10 @@ extern Token GLOBAL_TOKEN;
 ASTNode* parseTerminalNode() {
 	ASTNode* result = malloc(sizeof(ASTNode));
 
-	if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
-		fatal(RC_ERROR, "Expected integer literal but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
+	if (GLOBAL_TOKEN.type == END) {
+		fatal(RC_ERROR, "Expected semicolon but encountered end of file");
+	} else if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
+		fatal(RC_ERROR, "Expected terminal token but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
 	}
 
 	// Create a leaf node
@@ -34,7 +36,7 @@ ASTNode* prattParse(int prevPrecedence) {
 	scan();
 	
 	TokenType tokenType = GLOBAL_TOKEN.type;
-	while (tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
+	while (tokenType != SEMICOLON && tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
 		scan();
 
 		ASTNode* right = prattParse(PRECEDENCE[tokenType]);
@@ -49,6 +51,9 @@ ASTNode* prattParse(int prevPrecedence) {
 		left = newLeft;
 
 		tokenType = GLOBAL_TOKEN.type;
+	}
+	if (tokenType == END) {
+		fatal(RC_ERROR, "Expected a semicolon but found end of file");
 	}
 
 	return left;

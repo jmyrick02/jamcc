@@ -4,22 +4,22 @@
 #include "../include/scan.h"
 #include "../include/lib/logging.h"
 
+#define MAX_INTEGER_LITERAL_DIGITS 19
+#define MAX_IDENTIFIER_LENGTH 512
+
 FILE* GLOBAL_FILE_POINTER;
 Token GLOBAL_TOKEN;
 
-const int MAX_INTEGER_LITERAL_DIGITS = 19;
+TokenNode* IDENTIFIERS = NULL; // TODO move to a better location
 
 // Get next valid character from file
 char next() {
-	char c = fgetc(GLOBAL_FILE_POINTER);
-
-	return c;
+	return fgetc(GLOBAL_FILE_POINTER);
 }
 
 // Gets the next non-whitespace character from file
 char nextNonWhitespace() {
 	char c;
-
 	do {
 		c = next();
 	} while (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f');
@@ -33,20 +33,35 @@ void scanBitshiftOperator() {
 
 // Scan integer literals into int objects
 int scanIntegerLiteral(char c) {
-	char integer_buffer[MAX_INTEGER_LITERAL_DIGITS + 1];
-	int buffer_index = 0;
+	char integerBuffer[MAX_INTEGER_LITERAL_DIGITS + 1];
+	int bufferIndex = 0;
 
 	// while buffer is free and c is an integer
-	while (buffer_index < MAX_INTEGER_LITERAL_DIGITS && c - '0' >= 0 && c - '9' <= 0) {
-		integer_buffer[buffer_index] = c;
-		buffer_index++;
+	while (bufferIndex < MAX_INTEGER_LITERAL_DIGITS && c - '0' >= 0 && c - '9' <= 0) {
+		integerBuffer[bufferIndex] = c;
+		bufferIndex++;
 		c = next();
 	}
 
 	// Put back non-integer character
 	ungetc(c, GLOBAL_FILE_POINTER);
 
-	return atoi(integer_buffer);
+	return atoi(integerBuffer);
+}
+
+// Scan identifier into buffer with space maxLength
+void scanIdentifier(char c, char* buffer, int maxLength) {
+	int buffer_index = 0;
+
+	// while buffer is free and c is alphanumeric or '_'
+	while (buffer_index < maxLength && (c == '_' || (c - 'A' >= 0 && c - 'z' <= 0) || (c - '0' >= 0 && c - '9' <= 0))) {
+		buffer[buffer_index] = c;
+		buffer_index++;
+		c = next();
+	}
+
+	// Put back non-alphanumeric/_ character
+	ungetc(c, GLOBAL_FILE_POINTER);
 }
 
 // Scan into GLOBAL_TOKEN
@@ -54,7 +69,6 @@ void scan() {
 	Token token;
 
 	char c = nextNonWhitespace();
-
 	switch (c) {
 		case EOF:
 			token.type = END;
@@ -90,7 +104,94 @@ void scan() {
 		case '8':
 		case '9':
 			token.type = INTEGER_LITERAL;
-			token.val = scanIntegerLiteral(c);
+			token.integerLiteralValue = scanIntegerLiteral(c); 
+			break;
+		case ';':
+			token.type = SEMICOLON;
+			break;
+		case '_':
+		case 'A':
+		case 'B':
+		case 'C':
+		case 'D':
+		case 'E':
+		case 'F':
+		case 'G':
+		case 'H':
+		case 'I':
+		case 'J':
+		case 'K':
+		case 'L':
+		case 'M':
+		case 'N':
+		case 'O':
+		case 'P':
+		case 'Q':
+		case 'R':
+		case 'S':
+		case 'T':
+		case 'U':
+		case 'V':
+		case 'W':
+		case 'X':
+		case 'Y':
+		case 'Z':
+		case 'a':
+		case 'b':
+		case 'c':
+		case 'd':
+		case 'e':
+		case 'f':
+		case 'g':
+		case 'h':
+		case 'i':
+		case 'j':
+		case 'k':
+		case 'l':
+		case 'm':
+		case 'n':
+		case 'o':
+		case 'p':
+		case 'q':
+		case 'r':
+		case 's':
+		case 't':
+		case 'u':
+		case 'v':
+		case 'w':
+		case 'x':
+		case 'y':
+		case 'z':
+			{
+				char identifierBuffer[MAX_IDENTIFIER_LENGTH];
+				scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
+				
+				// Check keywords
+				char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH] = "print";
+				if (strcmp(identifierBuffer, KEYWORD_PRINT) == 0) {
+					token.type = PRINT;
+					break;
+				}
+
+				TokenNode* cur = IDENTIFIERS;
+				if (cur == NULL) { // There are no identifiers
+					fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
+				}
+				int foundIdentifier = 0;
+				do {
+					// TODO strcmp won't work unless cur->name also is a similar buffer
+					if (strcmp(cur->name, identifierBuffer) == 0) {
+						foundIdentifier = 1;
+						break;
+					}
+					cur = cur->next;
+				} while (cur->next != NULL);
+				if (!foundIdentifier) {
+					fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
+				}
+				token.type = IDENTIFIER;
+				token.identifierNode = cur;
+			}
 			break;
 		default:
 			fatal(RC_ERROR, "Invalid token '%c'", c);

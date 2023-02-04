@@ -23,11 +23,11 @@ int main(int argc, char *argv[]) {
 	if (LLVM_OUTPUT == NULL) {
 		fatal(RC_ERROR, "Failed to create file out.ll");
 	}
-
-	scan();
-	ASTNode* parsedBinaryExpression = parseBinaryExpression();
 	
-	generateLLVM(parsedBinaryExpression);
+	// Initialize scanner
+	scan();
+
+	generateLLVM();
 
 	fclose(GLOBAL_FILE_POINTER);
 	fclose(LLVM_OUTPUT);

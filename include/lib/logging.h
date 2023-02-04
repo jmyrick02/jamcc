@@ -30,6 +30,7 @@ typedef enum {
 /**
 * @brief String representation of return codes
 */
+#pragma once
 const static char* returnCodeStrings[] = {
 	"OK", "ERROR", 
 };

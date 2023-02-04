@@ -1,4 +1,5 @@
 #include "../include/generate_llvm.h"
+#include "../include/parsing/statement.h"
 
 FILE* LLVM_OUTPUT;
 int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
@@ -7,11 +8,10 @@ LLVMNode* LLVM_LOADED_REGISTERS = NULL;
 
 extern char* ARG_FILEPATH;
 
-// Change these strings to match your target
-const char* TARGET_DATALAYOUT = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128";
-const char* TARGET_TRIPLE = "x86_64-redhat-linux-gnu";
-const char* ATTRIBUTES_0 = "noinline nounwind optnone uwtable \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+cx8,+fxsr,+mmx,+sse,+sse2,+x87\" \"tune-cpu\"=\"generic\"";
-const char* CLANG_VERSION = "clang version 15.0.7 (Fedora 15.0.7-1.fc37)";
+#define TARGET_DATALAYOUT "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+#define TARGET_TRIPLE "x86_64-redhat-linux-gnu"
+#define ATTRIBUTES_0 "noinline nounwind optnone uwtable \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+cx8,+fxsr,+mmx,+sse,+sse2,+x87\" \"tune-cpu\"=\"generic\""
+#define CLANG_VERSION "clang version 15.0.7 (Fedora 15.0.7-1.fc37)"
 
 void appendToLoadedRegisters(LLVMValue vr) {
 	LLVMNode* newNode = malloc(sizeof(LLVMNode));
@@ -214,7 +214,7 @@ LLVMValue generateFromAST(ASTNode* root) {
 			rightVR = generateEnsureRegisterLoaded(rightVR);
 			return generateBinaryArithmetic(root->token, leftVR, rightVR);
 		case INTEGER_LITERAL:
-			return generateStoreConstant(root->token.val);
+			return generateStoreConstant(root->token.integerLiteralValue);
 		default:
 			fatal(RC_ERROR, "Encountered bad operand while evaluating expression");
 			return leftVR; 
@@ -264,10 +264,19 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
 	}
 }
 
-void generateLLVM(ASTNode* root) {
+void generateLLVM() {
 	generatePreamble();	
-	generateStackAllocation(getStackEntriesFromBinaryExpression(root));
-	LLVMValue resultVR = generateFromAST(root);
-	generatePrintInt(resultVR);
+	
+	ASTNode* statementTree = parseStatement();
+	while (statementTree->token.type != END) {
+		generateStackAllocation(getStackEntriesFromBinaryExpression(statementTree));
+		LLVMValue resultVR = generateFromAST(statementTree);
+		generatePrintInt(resultVR);
+
+		LLVM_VIRTUAL_REGISTER_NUMBER++;
+
+		statementTree = parseStatement();
+	}
+
 	generatePostamble();
 }

@@ -6,7 +6,10 @@ typedef enum {
 	BITSHIFT_LEFT,
 	BITSHIFT_RIGHT,
 	INTEGER_LITERAL,
-	END
+	PRINT,
+	SEMICOLON,
+	IDENTIFIER,
+	END,
 } TokenType;
 
 static const int PRECEDENCE[] = {
@@ -17,6 +20,9 @@ static const int PRECEDENCE[] = {
 	0, // BITSHIFT_LEFT
 	0, // BITSHIFT_RIGHT
 	-1, // INTEGER_LITERAL
+	-1, // PRINT
+	-1, // SEMICOLON
+	-1, // IDENTIFIER
 	-1, // END 
 };
 
@@ -28,11 +34,20 @@ static const char* TOKENTYPE_STRING[] = {
 	"<<", // BITSHIFT_LEFT
 	">>", // BITSHIFT_RIGHT
 	"integer literal", // INTEGER_LITERAL
+	"print", // PRINT
+	";", // SEMICOLON
+	"identifier", // IDENTIFIER
 	"EOF", // END
 };
 
 typedef struct Token {
 	TokenType type;
-	int val;
+	int integerLiteralValue;
+	struct IdentifierNode* identifierNode;
 } Token;
+
+typedef struct IdentifierNode {
+	char* name;
+	struct IdentifierNode* next;
+} TokenNode;
 

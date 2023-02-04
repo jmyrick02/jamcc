@@ -5,4 +5,4 @@
 #include "llvm.h"
 #include "scan.h"
 
-void generateLLVM(ASTNode* root);
+void generateLLVM();
