@@ -79,9 +79,7 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr) {
 	}
 
 	// Load the register since it's unloaded
-	LLVMValue newVR;
-	newVR.type = VIRTUAL_REGISTER;
-	newVR.val = getNextVirtualRegisterNumber();
+	LLVMValue newVR = {VIRTUAL_REGISTER, getNextVirtualRegisterNumber()};
 
 	fprintf(LLVM_OUTPUT, "\t%%%d = load i32, i32* %%%d\n", newVR.val, vr.val);
 
@@ -92,10 +90,7 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr) {
 LLVMValue generateStoreConstant(int constant) {
 	fprintf(LLVM_OUTPUT, "\tstore i32 %d, i32* %%%d\n", constant, LLVM_FREE_REGISTER_COUNT);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = LLVM_FREE_REGISTER_COUNT;
-
+	LLVMValue result = {VIRTUAL_REGISTER, LLVM_FREE_REGISTER_COUNT};
 	LLVM_FREE_REGISTER_COUNT -= 1;
 
 	return result;
@@ -105,60 +100,42 @@ LLVMValue generateAdd(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber(); 
 	fprintf(LLVM_OUTPUT, "\t%%%d = add nsw i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateSub(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber();
 	fprintf(LLVM_OUTPUT, "\t%%%d = sub nsw i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateMul(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber();
 	fprintf(LLVM_OUTPUT, "\t%%%d = mul nsw i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateDiv(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber();
 	fprintf(LLVM_OUTPUT, "\t%%%d = udiv i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateShl(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber();
 	fprintf(LLVM_OUTPUT, "\t%%%d = shl nsw i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateAshr(LLVMValue leftVR, LLVMValue rightVR) {
 	int outVRNum = getNextVirtualRegisterNumber();
 	fprintf(LLVM_OUTPUT, "\t%%%d = ashr i32 %%%d, %%%d\n", outVRNum, leftVR.val, rightVR.val);
 
-	LLVMValue result;
-	result.type = VIRTUAL_REGISTER;
-	result.val = outVRNum;
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, outVRNum};
 }
 
 LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue rightVR) {
@@ -214,7 +191,7 @@ LLVMValue generateFromAST(ASTNode* root) {
 			rightVR = generateEnsureRegisterLoaded(rightVR);
 			return generateBinaryArithmetic(root->token, leftVR, rightVR);
 		case INTEGER_LITERAL:
-			return generateStoreConstant(root->token.integerLiteralValue);
+			return generateStoreConstant(root->token.val);
 		default:
 			fatal(RC_ERROR, "Encountered bad operand while evaluating expression");
 			return leftVR; 
@@ -250,11 +227,7 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
 	}	else { // Root is an integer literal
 		LLVMNode* result = malloc(sizeof(LLVMNode));
 
-		LLVMValue vr;
-		vr.type = VIRTUAL_REGISTER;
-		vr.val = getNextVirtualRegisterNumber();
-
-		result->vr = vr;
+		result->vr = (LLVMValue) {VIRTUAL_REGISTER, getNextVirtualRegisterNumber()};
 		result->alignBytes = 4;
 		result->next = NULL;
 

@@ -10,8 +10,6 @@
 FILE* GLOBAL_FILE_POINTER;
 Token GLOBAL_TOKEN;
 
-TokenNode* IDENTIFIERS = NULL; // TODO move to a better location
-
 // Get next valid character from file
 char next() {
 	return fgetc(GLOBAL_FILE_POINTER);
@@ -104,7 +102,7 @@ void scan() {
 		case '8':
 		case '9':
 			token.type = INTEGER_LITERAL;
-			token.integerLiteralValue = scanIntegerLiteral(c); 
+			token.val = scanIntegerLiteral(c); 
 			break;
 		case ';':
 			token.type = SEMICOLON;
@@ -167,30 +165,12 @@ void scan() {
 				scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
 				
 				// Check keywords
-				char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH] = "print";
+				const char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH] = "print";
 				if (strcmp(identifierBuffer, KEYWORD_PRINT) == 0) {
 					token.type = PRINT;
-					break;
-				}
-
-				TokenNode* cur = IDENTIFIERS;
-				if (cur == NULL) { // There are no identifiers
+				} else {
 					fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
 				}
-				int foundIdentifier = 0;
-				do {
-					// TODO strcmp won't work unless cur->name also is a similar buffer
-					if (strcmp(cur->name, identifierBuffer) == 0) {
-						foundIdentifier = 1;
-						break;
-					}
-					cur = cur->next;
-				} while (cur->next != NULL);
-				if (!foundIdentifier) {
-					fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
-				}
-				token.type = IDENTIFIER;
-				token.identifierNode = cur;
 			}
 			break;
 		default:

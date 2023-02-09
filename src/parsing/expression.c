@@ -43,9 +43,7 @@ ASTNode* prattParse(int prevPrecedence) {
 
 		// Join right subtree with current left subtree
 		ASTNode* newLeft = malloc(sizeof(ASTNode));
-		Token newToken;
-		newToken.type = tokenType;
-		newLeft->token = newToken;
+		newLeft->token = (Token) {tokenType, 0};
 		newLeft->left = left;
 		newLeft->right = right;
 		left = newLeft;

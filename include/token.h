@@ -42,12 +42,5 @@ static const char* TOKENTYPE_STRING[] = {
 
 typedef struct Token {
 	TokenType type;
-	int integerLiteralValue;
-	struct IdentifierNode* identifierNode;
+	int val;
 } Token;
-
-typedef struct IdentifierNode {
-	char* name;
-	struct IdentifierNode* next;
-} TokenNode;
-
