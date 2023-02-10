@@ -3,7 +3,7 @@
 
 FILE* LLVM_OUTPUT;
 int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
-int LLVM_FREE_REGISTER_COUNT = 0;
+IntNode* LLVM_FREE_REGISTER_NUMBERS = NULL;
 LLVMNode* LLVM_LOADED_REGISTERS = NULL;
 
 extern char* ARG_FILEPATH;
@@ -13,19 +13,28 @@ extern char* ARG_FILEPATH;
 #define ATTRIBUTES_0 "noinline nounwind optnone uwtable \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+cx8,+fxsr,+mmx,+sse,+sse2,+x87\" \"tune-cpu\"=\"generic\""
 #define CLANG_VERSION "clang version 15.0.7 (Fedora 15.0.7-1.fc37)"
 
-void appendToLoadedRegisters(LLVMValue vr) {
+void pushLoadedRegister(LLVMValue vr) {
 	LLVMNode* newNode = malloc(sizeof(LLVMNode));
 	newNode->vr = vr;
-	newNode->next = NULL;
-	if (LLVM_LOADED_REGISTERS == NULL) {
-		LLVM_LOADED_REGISTERS = newNode;
-	} else {
-		LLVMNode* cur = LLVM_LOADED_REGISTERS;
-		while (cur->next != NULL) {
-			cur = cur->next;
-		}
-		cur->next = newNode;
-	}
+	newNode->next = LLVM_LOADED_REGISTERS;
+
+	LLVM_LOADED_REGISTERS = newNode;
+}
+
+void pushFreeRegisterNumber(int num) {
+	IntNode* newNode = malloc(sizeof(LLVMNode));
+	newNode->val = num;
+	newNode->next = LLVM_FREE_REGISTER_NUMBERS;
+	
+	LLVM_FREE_REGISTER_NUMBERS = newNode;
+}
+
+int popFreeRegisterNumber() {
+	int result = LLVM_FREE_REGISTER_NUMBERS->val;
+	IntNode* old = LLVM_FREE_REGISTER_NUMBERS;
+	LLVM_FREE_REGISTER_NUMBERS = old->next;
+	free(old);
+	return result;
 }
 
 int getNextVirtualRegisterNumber() {
@@ -83,17 +92,15 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr) {
 
 	fprintf(LLVM_OUTPUT, "\t%%%d = load i32, i32* %%%d\n", newVR.val, vr.val);
 
-	appendToLoadedRegisters(newVR);
+	pushLoadedRegister(newVR);
 	return newVR;
 }
 
 LLVMValue generateStoreConstant(int constant) {
-	fprintf(LLVM_OUTPUT, "\tstore i32 %d, i32* %%%d\n", constant, LLVM_FREE_REGISTER_COUNT);
+	int registerNum = popFreeRegisterNumber();
+	fprintf(LLVM_OUTPUT, "\tstore i32 %d, i32* %%%d\n", constant, registerNum);
 
-	LLVMValue result = {VIRTUAL_REGISTER, LLVM_FREE_REGISTER_COUNT};
-	LLVM_FREE_REGISTER_COUNT -= 1;
-
-	return result;
+	return (LLVMValue) {VIRTUAL_REGISTER, registerNum};
 }
 
 LLVMValue generateAdd(LLVMValue leftVR, LLVMValue rightVR) {
@@ -165,7 +172,7 @@ LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue righ
 			break;
 	}
 
-	appendToLoadedRegisters(result);
+	pushLoadedRegister(result);
 	return result;
 }
 
@@ -226,12 +233,13 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
 		return left;
 	}	else { // Root is an integer literal
 		LLVMNode* result = malloc(sizeof(LLVMNode));
-
-		result->vr = (LLVMValue) {VIRTUAL_REGISTER, getNextVirtualRegisterNumber()};
+		
+		int registerNumber = getNextVirtualRegisterNumber();
+		result->vr = (LLVMValue) {VIRTUAL_REGISTER, registerNumber};
 		result->alignBytes = 4;
 		result->next = NULL;
 
-		LLVM_FREE_REGISTER_COUNT++;
+		pushFreeRegisterNumber(registerNumber);
 
 		return result;
 	}

@@ -12,3 +12,8 @@ typedef struct LLVMNode {
 	int alignBytes;
 	struct LLVMNode* next;
 } LLVMNode;
+
+typedef struct IntNode {
+	int val;
+	struct IntNode* next;
+} IntNode;
