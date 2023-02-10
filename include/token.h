@@ -7,6 +7,7 @@ typedef enum {
 	BITSHIFT_RIGHT,
 	INTEGER_LITERAL,
 	PRINT,
+	FACTORIAL,
 	SEMICOLON,
 	IDENTIFIER,
 	END,
@@ -21,6 +22,7 @@ static const int PRECEDENCE[] = {
 	0, // BITSHIFT_RIGHT
 	-1, // INTEGER_LITERAL
 	-1, // PRINT
+	-1, // FACTORIAL
 	-1, // SEMICOLON
 	-1, // IDENTIFIER
 	-1, // END 
@@ -35,6 +37,7 @@ static const char* TOKENTYPE_STRING[] = {
 	">>", // BITSHIFT_RIGHT
 	"integer literal", // INTEGER_LITERAL
 	"print", // PRINT
+	"factorial", // FACTORIAL
 	";", // SEMICOLON
 	"identifier", // IDENTIFIER
 	"EOF", // END

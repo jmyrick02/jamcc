@@ -1,2 +1,1 @@
-print 2 + 3 * 5 - 8 / 3;
-print 2 + 3 * 5 - 8 / 3 << 1;
+factorial 5;

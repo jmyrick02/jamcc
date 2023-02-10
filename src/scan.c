@@ -166,8 +166,11 @@ void scan() {
 				
 				// Check keywords
 				const char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH] = "print";
+				const char KEYWORD_FACTORIAL[MAX_IDENTIFIER_LENGTH] = "factorial"; 
 				if (strcmp(identifierBuffer, KEYWORD_PRINT) == 0) {
 					token.type = PRINT;
+				} else if (strcmp(identifierBuffer, KEYWORD_FACTORIAL) == 0) {
+					token.type = FACTORIAL;
 				} else {
 					fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
 				}
