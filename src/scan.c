@@ -57,6 +57,7 @@ void scanIdentifier(char c, char* buffer, int maxLength) {
 		buffer_index++;
 		c = next();
 	}
+  buffer[buffer_index] = '\0';
 
 	// Put back non-alphanumeric/_ character
 	ungetc(c, GLOBAL_FILE_POINTER);
@@ -161,7 +162,7 @@ void scan() {
 		case 'y':
 		case 'z':
 			{
-				char identifierBuffer[MAX_IDENTIFIER_LENGTH];
+				char identifierBuffer[MAX_IDENTIFIER_LENGTH + 1];
 				scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
 				
 				// Check keywords
