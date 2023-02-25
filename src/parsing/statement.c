@@ -23,11 +23,9 @@ ASTNode* parseStatement() {
 		parsedBinaryExpression = malloc(sizeof(ASTNode));
 
 		scan();
-		if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
-			fatal(RC_ERROR, "Expected integer literal");
-		}
-
 		int num = GLOBAL_TOKEN.val;
+    matchToken(INTEGER_LITERAL);
+
 		if (num == 0 || num == 1) {
 			parsedBinaryExpression = malloc(sizeof(ASTNode));
 			parsedBinaryExpression->token = (Token) {STAR, 0};
@@ -45,6 +43,7 @@ ASTNode* parseStatement() {
 			ASTNode* cur = parsedBinaryExpression;
 			cur->token = (Token) {STAR, 0};
 			while (num > 1) {
+        //printf("%d\n", num);
 				cur->left = malloc(sizeof(ASTNode));
 				cur->left->token = (Token) {INTEGER_LITERAL, num};
 				cur->left->left = NULL;
@@ -64,7 +63,6 @@ ASTNode* parseStatement() {
 		fatal(RC_ERROR, "Expected print or factorial token\n");
 	}
 
-	scan();
 	matchToken(SEMICOLON);
 
 	return parsedBinaryExpression;

@@ -206,7 +206,8 @@ LLVMValue generateFromAST(ASTNode* root) {
 }
 
 void generatePrintInt(LLVMValue vr) {
-	fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", vr.val);
+  LLVMValue loadedVR = generateEnsureRegisterLoaded(vr);
+	fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", loadedVR.val);
 }
 
 LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {

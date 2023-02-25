@@ -40,6 +40,7 @@ int scanIntegerLiteral(char c) {
 		bufferIndex++;
 		c = next();
 	}
+  integerBuffer[bufferIndex] = '\0';
 
 	// Put back non-integer character
 	ungetc(c, GLOBAL_FILE_POINTER);

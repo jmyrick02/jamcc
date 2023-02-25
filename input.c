@@ -1,1 +1,3 @@
-print 1 + 4;
+factorial 5;
+print 5;
+factorial 0;
