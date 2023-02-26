@@ -26,15 +26,15 @@ ASTNode* parseFactorialStatement() {
   matchToken(FACTORIAL);
   matchToken(INTEGER_LITERAL);
 
-  ASTNode* result = malloc(sizeof(ASTNode*));
+  ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {PRINT, 0};
 
-  ASTNode* cur = malloc(sizeof(ASTNode*));
+  ASTNode* cur = malloc(sizeof(ASTNode));
   result->left = cur;
   result->right = NULL;
   cur->token = (Token) {STAR, 0};
 
-  int num = GLOBAL_TOKEN.val;
+  int num = GLOBAL_TOKEN.val.integer;
   while (num > 1) {
     cur->left = malloc(sizeof(ASTNode));
     cur->left->token = (Token) {INTEGER_LITERAL, num};
@@ -71,7 +71,6 @@ ASTNode* parseStatement() {
     case END:
       return parseEnd();
     default:
-
       fatal(RC_ERROR, "Expected valid statement (print or factorial token)\n");
       return NULL;
   }

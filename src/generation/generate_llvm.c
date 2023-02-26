@@ -22,7 +22,7 @@ void pushLoadedRegister(LLVMValue vr) {
 }
 
 void pushFreeRegisterNumber(int num) {
-  IntNode* newNode = malloc(sizeof(LLVMNode));
+  IntNode* newNode = malloc(sizeof(IntNode));
   newNode->val = num;
   newNode->next = LLVM_FREE_REGISTER_NUMBERS;
   
@@ -202,7 +202,7 @@ LLVMValue generateFromAST(ASTNode* root) {
       rightVR = generateEnsureRegisterLoaded(rightVR);
       return generateBinaryArithmetic(root->token, leftVR, rightVR);
     case INTEGER_LITERAL:
-      return generateStoreConstant(root->token.val);
+      return generateStoreConstant(root->token.val.integer);
     case PRINT:
       generatePrintInt(leftVR);
       return (LLVMValue) {NONE, 0};

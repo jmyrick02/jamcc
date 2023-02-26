@@ -5,7 +5,6 @@
 #include "../include/lib/logging.h"
 
 #define MAX_INTEGER_LITERAL_DIGITS 19
-#define MAX_IDENTIFIER_LENGTH 512
 
 FILE* GLOBAL_FILE_POINTER;
 Token GLOBAL_TOKEN;
@@ -104,7 +103,7 @@ void scan() {
     case '8':
     case '9':
       token.type = INTEGER_LITERAL;
-      token.val = scanIntegerLiteral(c); 
+      token.val = (TokenVal) { .integer = scanIntegerLiteral(c) };
       break;
     case ';':
       token.type = SEMICOLON;
@@ -174,7 +173,10 @@ void scan() {
         } else if (strcmp(identifierBuffer, KEYWORD_FACTORIAL) == 0) {
           token.type = FACTORIAL;
         } else {
-          fatal(RC_ERROR, "Unrecognized identifier \"%s\"", identifierBuffer);
+          token.type = IDENTIFIER;
+          TokenVal val;
+          strcpy(val.string, identifierBuffer);
+          token.val = val;
         }
       }
       break;

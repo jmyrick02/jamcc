@@ -1,3 +1,5 @@
+#define MAX_IDENTIFIER_LENGTH 512
+
 typedef enum {
   PLUS = 0, 
   MINUS, 
@@ -9,6 +11,7 @@ typedef enum {
   PRINT,
   FACTORIAL,
   SEMICOLON,
+  IDENTIFIER,
   END,
 } TokenType;
 
@@ -37,11 +40,17 @@ static const char* TOKENTYPE_STRING[] = {
   "integer literal", // INTEGER_LITERAL
   "print", // PRINT
   "factorial", // FACTORIAL
+  "identifier", // IDENTIFIER
   ";", // SEMICOLON
   "EOF", // END
 };
 
+typedef union TokenVal {
+  int integer;
+  char string[MAX_IDENTIFIER_LENGTH + 1];
+} TokenVal;
+
 typedef struct Token {
   TokenType type;
-  int val;
+  TokenVal val;
 } Token;
