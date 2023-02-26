@@ -9,60 +9,70 @@ void matchToken(TokenType type) {
   scan();
 }
 
-ASTNode* parseStatement() {
-  if (GLOBAL_TOKEN.type == END) {
-    ASTNode* endNode = malloc(sizeof(ASTNode));
-    endNode->token = (Token) {END, 0};
-    return endNode;
-  }
-  ASTNode* parsedBinaryExpression;
-  if (GLOBAL_TOKEN.type == PRINT) {
-    scan();
-    parsedBinaryExpression = parseBinaryExpression();
-  } else if (GLOBAL_TOKEN.type == FACTORIAL) {
-    parsedBinaryExpression = malloc(sizeof(ASTNode));
+ASTNode* parsePrintStatement() {
+  matchToken(PRINT);
 
-    scan();
-    int num = GLOBAL_TOKEN.val;
-    matchToken(INTEGER_LITERAL);
-
-    if (num == 0 || num == 1) {
-      parsedBinaryExpression = malloc(sizeof(ASTNode));
-      parsedBinaryExpression->token = (Token) {STAR, 0};
-
-      parsedBinaryExpression->left = malloc(sizeof(ASTNode));
-      parsedBinaryExpression->left->token = (Token) {INTEGER_LITERAL, 1};
-      parsedBinaryExpression->left->left = NULL;
-      parsedBinaryExpression->left->right = NULL;
-      
-      parsedBinaryExpression->right = malloc(sizeof(ASTNode));
-      parsedBinaryExpression->right->token = (Token) {INTEGER_LITERAL, 1};
-      parsedBinaryExpression->right->left = NULL;
-      parsedBinaryExpression->right->right = NULL;
-    } else {
-      ASTNode* cur = parsedBinaryExpression;
-      cur->token = (Token) {STAR, 0};
-      while (num > 1) {
-        cur->left = malloc(sizeof(ASTNode));
-        cur->left->token = (Token) {INTEGER_LITERAL, num};
-        cur->left->left = NULL;
-        cur->left->right = NULL;
-
-        cur->right = malloc(sizeof(ASTNode));
-        cur->right->token = (Token) {STAR, 0};
-        cur->right->left = NULL;
-        cur->right->right = NULL;
-
-        cur = cur->right;
-        num--;
-      }
-      cur->token = (Token) {INTEGER_LITERAL, 1};
-    }
-  } else {
-    fatal(RC_ERROR, "Expected print or factorial token\n");
-  }
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {PRINT, 0};
+  result->left = parseBinaryExpression();
+  result->right = NULL;
 
   matchToken(SEMICOLON);
 
-  return parsedBinaryExpression;
+  return result;
+}
+
+ASTNode* parseFactorialStatement() {
+  matchToken(FACTORIAL);
+  matchToken(INTEGER_LITERAL);
+
+  ASTNode* result = malloc(sizeof(ASTNode*));
+  result->token = (Token) {PRINT, 0};
+
+  ASTNode* cur = malloc(sizeof(ASTNode*));
+  result->left = cur;
+  result->right = NULL;
+  cur->token = (Token) {STAR, 0};
+
+  int num = GLOBAL_TOKEN.val;
+  while (num > 1) {
+    cur->left = malloc(sizeof(ASTNode));
+    cur->left->token = (Token) {INTEGER_LITERAL, num};
+    cur->left->left = NULL;
+    cur->left->right = NULL;
+
+    cur->right = malloc(sizeof(ASTNode));
+    cur->right->token = (Token) {STAR, 0};
+    cur->right->left = NULL;
+    cur->right->right = NULL;
+
+    cur = cur->right;
+    num--;
+  }
+  cur->token = (Token) {INTEGER_LITERAL, 1};
+
+  matchToken(SEMICOLON);
+
+  return result;
+}
+
+ASTNode* parseEnd() {
+  ASTNode* endNode = malloc(sizeof(ASTNode));
+  endNode->token = (Token) {END, 0};
+  return endNode;
+}
+
+ASTNode* parseStatement() {
+  switch (GLOBAL_TOKEN.type) {
+    case PRINT:
+      return parsePrintStatement();
+    case FACTORIAL:
+      return parseFactorialStatement();
+    case END:
+      return parseEnd();
+    default:
+
+      fatal(RC_ERROR, "Expected valid statement (print or factorial token)\n");
+      return NULL;
+  }
 }

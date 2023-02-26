@@ -1,5 +1,6 @@
 typedef enum {
 	VIRTUAL_REGISTER = 0,
+  NONE,
 } LLVMValueType;
 
 typedef struct LLVMValue {

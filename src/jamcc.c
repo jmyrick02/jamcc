@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "../include/parsing/expression.h"
-#include "../include/generate_llvm.h"
+#include "../include/generation/generate_llvm.h"
 
 char* ARG_FILEPATH;
 

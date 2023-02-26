@@ -23,8 +23,8 @@
 * @brief Return codes used in different scenarios
 */
 typedef enum {
-	RC_OK,
-	RC_ERROR,
+  RC_OK,
+  RC_ERROR,
 } ReturnCode;
 
 /**
@@ -32,7 +32,7 @@ typedef enum {
 */
 #pragma once
 const static char* returnCodeStrings[] = {
-	"OK", "ERROR", 
+  "OK", "ERROR", 
 };
 
 void fatal(ReturnCode rc, const char* fmt, ...);

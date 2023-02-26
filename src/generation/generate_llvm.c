@@ -1,5 +1,5 @@
-#include "../include/generate_llvm.h"
-#include "../include/parsing/statement.h"
+#include "../../include/generation/generate_llvm.h"
+#include "../../include/parsing/statement.h"
 
 FILE* LLVM_OUTPUT;
 int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
@@ -176,16 +176,20 @@ LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue righ
   return result;
 }
 
+void generatePrintInt(LLVMValue vr) {
+  LLVMValue loadedVR = generateEnsureRegisterLoaded(vr);
+  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", loadedVR.val);
+  LLVM_VIRTUAL_REGISTER_NUMBER++;
+}
+
 LLVMValue generateFromAST(ASTNode* root) {
   LLVMValue leftVR;
   LLVMValue rightVR;
 
-  if (root->left != NULL) {
+  if (root->left != NULL)
     leftVR = generateFromAST(root->left);
-  }
-  if (root->right != NULL) {
+  if (root->right != NULL)
     rightVR = generateFromAST(root->right);
-  }
 
   switch (root->token.type) {
     case PLUS:
@@ -199,15 +203,13 @@ LLVMValue generateFromAST(ASTNode* root) {
       return generateBinaryArithmetic(root->token, leftVR, rightVR);
     case INTEGER_LITERAL:
       return generateStoreConstant(root->token.val);
+    case PRINT:
+      generatePrintInt(leftVR);
+      return (LLVMValue) {NONE, 0};
     default:
       fatal(RC_ERROR, "Encountered bad operand while evaluating expression");
       return leftVR; 
   }
-}
-
-void generatePrintInt(LLVMValue vr) {
-  LLVMValue loadedVR = generateEnsureRegisterLoaded(vr);
-  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", loadedVR.val);
 }
 
 LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
@@ -252,10 +254,7 @@ void generateLLVM() {
   ASTNode* statementTree = parseStatement();
   while (statementTree->token.type != END) {
     generateStackAllocation(getStackEntriesFromBinaryExpression(statementTree));
-    LLVMValue resultVR = generateFromAST(statementTree);
-    generatePrintInt(resultVR);
-
-    LLVM_VIRTUAL_REGISTER_NUMBER++;
+    generateFromAST(statementTree);
 
     statementTree = parseStatement();
   }
