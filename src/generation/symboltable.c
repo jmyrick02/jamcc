@@ -1,10 +1,11 @@
 #include "../../include/generation/symboltable.h"
+#include "stdio.h"
 
 SymbolTableEntry** data;
 int length = 0;
 
 int hash(char* string) {
-  long hash = FNV_OFFSET_BASIS;
+  unsigned long int hash = FNV_OFFSET_BASIS;
 
   int n = strlen(string);
   for (int i = 0; i < n; i++) {
@@ -17,11 +18,12 @@ int hash(char* string) {
 
 // Recommended: 512
 void initSymbolTable(int len) {
-  data = calloc(length, sizeof(SymbolTableEntry*)); // calloc initializes to NULL ptrs
+  data = calloc(len, sizeof(SymbolTableEntry*)); // calloc initializes to NULL ptrs
   length = len;
 }
 
 // Recommended: 2
+// TODO - incorrect and never used
 void resizeSymbolTable(int factor) {
   SymbolTableEntry **newData = malloc(length * factor * sizeof(SymbolTableEntry*));
 
@@ -39,21 +41,22 @@ void updateSymbolTable(char* identifier, int val) {
 
   if (data[hashResult] == NULL) {
     data[hashResult] = malloc(sizeof(SymbolTableEntry));
-    data[hashResult]->identifierName = identifier;
+    strcpy(data[hashResult]->identifierName, identifier);
     data[hashResult]->val = val;
     data[hashResult]->next = NULL;
   } else {
     SymbolTableEntry* cur = data[hashResult];
 
-    while (cur->next != NULL) {
+    while (cur != NULL) {
       if (strcmp(cur->identifierName, identifier) == 0)
         return;
 
-      cur = cur->next;
+      if (cur->next != NULL)
+        cur = cur->next;
     } // We're now at the tail
 
     SymbolTableEntry* newEntry = malloc(sizeof(SymbolTableEntry));
-    newEntry->identifierName = identifier;
+    strcpy(newEntry->identifierName, identifier);
     newEntry->val = val;
     newEntry->next = NULL;
 
@@ -62,18 +65,18 @@ void updateSymbolTable(char* identifier, int val) {
 }
 
 SymbolTableEntry* getSymbolTableEntry(char* identifier) {
-    int hashResult = hash(identifier);
+  int hashResult = hash(identifier);
 
-    if (data[hashResult] != NULL) {
-      SymbolTableEntry* cur = data[hashResult];
+  if (data[hashResult] != NULL) {
+    SymbolTableEntry* cur = data[hashResult];
 
-      while (cur->next != NULL) {
-        if (strcmp(cur->identifierName, identifier) == 0)
-          return cur;
+    while (cur != NULL) {
+      if (strcmp(cur->identifierName, identifier) == 0)
+        return cur;
 
-        cur = cur->next;
-      } // We're now at the tail
-    }
-
-    return NULL;
+      cur = cur->next;
+    } 
   }
+
+  return NULL;
+} 

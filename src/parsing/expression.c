@@ -10,14 +10,20 @@ ASTNode* parseTerminalNode() {
 
   if (GLOBAL_TOKEN.type == END) {
     fatal(RC_ERROR, "Expected semicolon but encountered end of file");
-  } else if (GLOBAL_TOKEN.type != INTEGER_LITERAL) {
+  } else if (GLOBAL_TOKEN.type == INTEGER_LITERAL) {
+    result->token = GLOBAL_TOKEN;
+    result->left = NULL;
+    result->right = NULL;
+  } else if (GLOBAL_TOKEN.type == IDENTIFIER) {
+    SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
+    if (entry == NULL)
+      fatal(RC_ERROR, "Undeclared variable %s", GLOBAL_TOKEN.val.string);
+    result->token = GLOBAL_TOKEN;
+    result->left = NULL;
+    result->right = NULL;
+  } else {
     fatal(RC_ERROR, "Expected terminal token but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
   }
-
-  // Create a leaf node
-  result->token = GLOBAL_TOKEN;
-  result->left = NULL;
-  result->right = NULL;
 
   return result;
 }

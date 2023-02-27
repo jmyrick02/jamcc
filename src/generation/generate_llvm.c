@@ -6,12 +6,16 @@ int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
 IntNode* LLVM_FREE_REGISTER_NUMBERS = NULL;
 LLVMNode* LLVM_LOADED_REGISTERS = NULL;
 
+FILE* LLVM_GLOBALS_OUTPUT;
+
 extern char* ARG_FILEPATH;
 
 #define TARGET_DATALAYOUT "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 #define TARGET_TRIPLE "x86_64-pc-linux-gnu"
 #define ATTRIBUTES_0 "noinline nounwind optnone uwtable \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+cx8,+fxsr,+mmx,+sse,+sse2,+x87\" \"tune-cpu\"=\"generic\""
 #define CLANG_VERSION "clang version 15.0.7"
+
+#define LLVM_GLOBALS_INJECTION_IDENTIFIER "<JAMCC GLOBALS PLACEHOLDER - If you see this, an issue with jamcc occurred>\n"
 
 void pushLoadedRegister(LLVMValue vr) {
   LLVMNode* newNode = malloc(sizeof(LLVMNode));
@@ -49,6 +53,10 @@ void generatePreamble() {
   fprintf(LLVM_OUTPUT, "\n");
   fprintf(LLVM_OUTPUT, "@print_int_fstring = private unnamed_addr constant [4 x i8] c\"%%d\\0A\\00\", align 1\n");
   fprintf(LLVM_OUTPUT, "\n");
+
+  fprintf(LLVM_OUTPUT, LLVM_GLOBALS_INJECTION_IDENTIFIER); 
+  fprintf(LLVM_OUTPUT, "\n");
+
   fprintf(LLVM_OUTPUT, "; Function Attrs: noinline nounwind optnone uwtable\n");
   fprintf(LLVM_OUTPUT, "define dso_local i32 @main() #0 {\n");
 }
@@ -176,20 +184,32 @@ LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue righ
   return result;
 }
 
-void generatePrintInt(LLVMValue vr) {
-  LLVMValue loadedVR = generateEnsureRegisterLoaded(vr);
-  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", loadedVR.val);
-  LLVM_VIRTUAL_REGISTER_NUMBER++;
+LLVMValue generateLoadGlobal(char* string) {
+  int outVR = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t%%%d = load i32, i32* @%s\n", outVR, string);
+  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR};
+  pushLoadedRegister(result);
+  return result;
 }
 
-LLVMValue generateFromAST(ASTNode* root) {
+void generateStoreGlobal(char* string, int rvalueRegisterNum) {
+  int outVR = generateEnsureRegisterLoaded((LLVMValue) {VIRTUAL_REGISTER, rvalueRegisterNum}).val;
+  fprintf(LLVM_OUTPUT, "\tstore i32 %%%d, i32* @%s\n", outVR, string);
+}
+
+void generatePrintInt(LLVMValue vr) {
+  LLVM_VIRTUAL_REGISTER_NUMBER++;
+  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", vr.val);
+}
+
+LLVMValue generateFromAST(ASTNode* root, int rvalueRegisterNum) {
   LLVMValue leftVR;
   LLVMValue rightVR;
 
   if (root->left != NULL)
-    leftVR = generateFromAST(root->left);
+    leftVR = generateFromAST(root->left, -1);
   if (root->right != NULL)
-    rightVR = generateFromAST(root->right);
+    rightVR = generateFromAST(root->right, leftVR.val);
 
   switch (root->token.type) {
     case PLUS:
@@ -206,10 +226,21 @@ LLVMValue generateFromAST(ASTNode* root) {
     case PRINT:
       generatePrintInt(leftVR);
       return (LLVMValue) {NONE, 0};
+    case IDENTIFIER:
+      return generateLoadGlobal(root->token.val.string);
+    case LEFTVALUE_IDENTIFIER:
+      generateStoreGlobal(root->token.val.string, rvalueRegisterNum);
+      return (LLVMValue) {VIRTUAL_REGISTER, rvalueRegisterNum};
+    case ASSIGN:
+      return (LLVMValue) {VIRTUAL_REGISTER, rvalueRegisterNum};
     default:
-      fatal(RC_ERROR, "Encountered bad operand while evaluating expression");
+      fatal(RC_ERROR, "Encountered bad operand while evaluating expression: %s", TOKENTYPE_STRING[root->token.type]);
       return leftVR; 
   }
+}
+
+void generateDeclareGlobal(char* name, int value) {
+  fprintf(LLVM_GLOBALS_OUTPUT, "@%s = global i32 %d\n", name, value);
 }
 
 LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
@@ -248,16 +279,63 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
   }
 }
 
+// TODO scuffed
+void injectGlobals() {
+  LLVM_OUTPUT = fopen("out.ll", "r");
+  LLVM_GLOBALS_OUTPUT = fopen(".globals.ll", "r");
+  FILE* temp = fopen(".temp.ll", "w");
+
+  char curLine[4096];
+
+  while (fgets(curLine, 4096, LLVM_OUTPUT) != NULL) {
+    if (strcmp(curLine, LLVM_GLOBALS_INJECTION_IDENTIFIER) == 0) {
+      char curLineGlobals[4096];
+      while (fgets(curLineGlobals, 4096, LLVM_GLOBALS_OUTPUT) != NULL) {
+        fprintf(temp, "%s", curLineGlobals);
+      }
+    } else {
+      fprintf(temp, "%s", curLine);
+    }
+  }
+
+  fclose(LLVM_OUTPUT);
+  fclose(temp);
+  temp = fopen(".temp.ll", "r");
+  LLVM_OUTPUT = fopen("out.ll", "w");
+
+  while (fgets(curLine, 4096, temp) != NULL) {
+    fprintf(LLVM_OUTPUT, "%s", curLine);
+  }
+
+  fclose(temp);
+  fclose(LLVM_GLOBALS_OUTPUT);
+
+  if (remove(".temp.ll") != 0)
+    fatal(RC_ERROR, "Failed to delete temporary file .temp.ll");
+  if (remove(".globals.ll") != 0)
+    fatal(RC_ERROR, "Failed to delete temporary file .globals.ll");
+}
+
 void generateLLVM() {
   generatePreamble(); 
   
   ASTNode* statementTree = parseStatement();
-  while (statementTree->token.type != END) {
+  while (statementTree == NULL || statementTree->token.type != END) {
+    if (statementTree == NULL) {
+      statementTree = parseStatement();
+      continue;
+    }
+
     generateStackAllocation(getStackEntriesFromBinaryExpression(statementTree));
-    generateFromAST(statementTree);
+    generateFromAST(statementTree, -1);
 
     statementTree = parseStatement();
   }
 
   generatePostamble();
+
+  fclose(LLVM_OUTPUT);
+  fclose(LLVM_GLOBALS_OUTPUT);
+
+  injectGlobals();
 }

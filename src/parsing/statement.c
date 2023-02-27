@@ -2,11 +2,13 @@
 
 extern Token GLOBAL_TOKEN;
 
-void matchToken(TokenType type) {
-  if (GLOBAL_TOKEN.type != type) {
-    fatal(RC_ERROR, "Expected token type %s but got %s\n", TOKENTYPE_STRING[type], TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
+Token matchToken(TokenType type) {
+  Token cur = GLOBAL_TOKEN;
+  if (cur.type != type) {
+    fatal(RC_ERROR, "Expected token type %s but got %s\n", TOKENTYPE_STRING[type], TOKENTYPE_STRING[cur.type]);
   }
   scan();
+  return cur;
 }
 
 ASTNode* parsePrintStatement() {
@@ -24,7 +26,7 @@ ASTNode* parsePrintStatement() {
 
 ASTNode* parseFactorialStatement() {
   matchToken(FACTORIAL);
-  matchToken(INTEGER_LITERAL);
+  Token literal = matchToken(INTEGER_LITERAL);
 
   ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {PRINT, 0};
@@ -34,7 +36,7 @@ ASTNode* parseFactorialStatement() {
   result->right = NULL;
   cur->token = (Token) {STAR, 0};
 
-  int num = GLOBAL_TOKEN.val.integer;
+  int num = literal.val.integer;
   while (num > 1) {
     cur->left = malloc(sizeof(ASTNode));
     cur->left->token = (Token) {INTEGER_LITERAL, num};
@@ -56,6 +58,35 @@ ASTNode* parseFactorialStatement() {
   return result;
 }
 
+void parseDeclarationStatement() {
+  matchToken(INT);
+  Token identifier = matchToken(IDENTIFIER);
+
+  updateSymbolTable(identifier.val.string, -1);
+  generateDeclareGlobal(identifier.val.string, 0);
+
+  matchToken(SEMICOLON);
+}
+
+ASTNode* parseAssignmentStatement() {
+  Token identifier = matchToken(IDENTIFIER);
+
+  if (getSymbolTableEntry(identifier.val.string) == NULL)
+    fatal(RC_ERROR, "Undefined variable %s\n", identifier.val.string);
+
+  matchToken(ASSIGN);
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->left = parseBinaryExpression();
+  result->right = malloc(sizeof(ASTNode));
+  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}};
+  strcpy(result->right->token.val.string, identifier.val.string);
+
+  matchToken(SEMICOLON);
+
+  return result;
+}
+
 ASTNode* parseEnd() {
   ASTNode* endNode = malloc(sizeof(ASTNode));
   endNode->token = (Token) {END, 0};
@@ -68,10 +99,15 @@ ASTNode* parseStatement() {
       return parsePrintStatement();
     case FACTORIAL:
       return parseFactorialStatement();
+    case INT:
+      parseDeclarationStatement();
+      return NULL;
+    case IDENTIFIER:
+      return parseAssignmentStatement();
     case END:
       return parseEnd();
     default:
-      fatal(RC_ERROR, "Expected valid statement (print or factorial token)\n");
+      fatal(RC_ERROR, "Expected valid statement, but got %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
       return NULL;
   }
 }

@@ -22,6 +22,7 @@
 /**
 * @brief Return codes used in different scenarios
 */
+#pragma once
 typedef enum {
   RC_OK,
   RC_ERROR,

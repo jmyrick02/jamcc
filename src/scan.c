@@ -92,6 +92,9 @@ void scan() {
       token.type = BITSHIFT_RIGHT;
       scanBitshiftOperator();
       break;
+    case '=':
+      token.type = ASSIGN;
+      break;
     case '0':
     case '1':
     case '2':
@@ -166,12 +169,15 @@ void scan() {
         scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
         
         // Check keywords
-        const char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH] = "print";
-        const char KEYWORD_FACTORIAL[MAX_IDENTIFIER_LENGTH] = "factorial"; 
+        const char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH + 1] = "print";
+        const char KEYWORD_FACTORIAL[MAX_IDENTIFIER_LENGTH + 1] = "factorial"; 
+        const char KEYWORD_INT[MAX_IDENTIFIER_LENGTH + 1] = "int";
         if (strcmp(identifierBuffer, KEYWORD_PRINT) == 0) {
           token.type = PRINT;
         } else if (strcmp(identifierBuffer, KEYWORD_FACTORIAL) == 0) {
           token.type = FACTORIAL;
+        } else if (strcmp(identifierBuffer, KEYWORD_INT) == 0) {
+          token.type = INT;
         } else {
           token.type = IDENTIFIER;
           TokenVal val;
