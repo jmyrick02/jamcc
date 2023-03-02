@@ -24,6 +24,21 @@ char nextNonWhitespace() {
   return c;
 }
 
+// Returns true if it is a comment
+int scanComment() {
+  char c = next();
+  if (c != '/') { // This isn't a comment
+    ungetc(c, GLOBAL_FILE_POINTER);
+    return 0;
+  }
+
+  // This is a comment - ignore characters until end of line
+  while (c != '\n') {
+    c = next();
+  }
+  return 1;
+}
+
 void scanBitshiftOperator() {
   next();
 }
@@ -82,7 +97,12 @@ void scan() {
       token.type = STAR;
       break;
     case '/':
-      token.type = SLASH;
+      if (scanComment()) {
+        scan();
+        return;
+      } else {
+        token.type = SLASH;
+      }
       break;
     case '<':
       token.type = BITSHIFT_LEFT;
