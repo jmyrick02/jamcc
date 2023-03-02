@@ -16,17 +16,23 @@ typedef enum {
   IDENTIFIER,
   LEFTVALUE_IDENTIFIER,
   ASSIGN,
+  EQ,
+  NEQ,
+  LT,
+  LEQ,
+  GT,
+  GEQ,
   END,
 } TokenType;
 
 #pragma once
 static const int PRECEDENCE[] = {
-  1, // PLUS
-  1, // MINUS
-  2, // STAR
-  2, // SLASH
-  0, // BITSHIFT_LEFT
-  0, // BITSHIFT_RIGHT
+  3, // PLUS
+  3, // MINUS
+  4, // STAR
+  4, // SLASH
+  2, // BITSHIFT_LEFT
+  2, // BITSHIFT_RIGHT
   -1, // INTEGER_LITERAL
   -1, // PRINT
   -1, // FACTORIAL
@@ -35,6 +41,12 @@ static const int PRECEDENCE[] = {
   -1, // IDENTIFIER
   -1, // LEFTVALUE_IDENTIFIER
   -1, // ASSIGN
+  0, // EQ
+  0, // NEQ
+  1, // LT
+  1, // LEQ
+  1, // GT
+  1, // GEQ
   -1, // END 
 };
 
@@ -53,6 +65,12 @@ static const char* TOKENTYPE_STRING[] = {
   "identifier", // IDENTIFIER
   "leftvalue identifier", // LEFTVALUE_IDENTIFIER
   "assign", // ASSIGN
+  "==", // EQ
+  "!=", // NEQ
+  "<", // LT
+  "<=", // LEQ
+  ">", // GT
+  ">=", // GEQ
   ";", // SEMICOLON
   "EOF", // END
 };
