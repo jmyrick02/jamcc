@@ -198,7 +198,7 @@ void scan() {
     case '7':
     case '8':
     case '9':
-      token.type = NUMBER_LITERAL; // TODO
+      token.type = NUMBER_LITERAL;
       token.val = (TokenVal) { .num = scanIntegerLiteral(c, &token.numType) };
       break;
     case ';':

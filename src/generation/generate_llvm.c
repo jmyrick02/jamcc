@@ -289,7 +289,7 @@ void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
   fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->numType], string);
 }
 
-void generatePrintInt(LLVMValue vr) { // TODO how to print nonints?
+void generatePrintInt(LLVMValue vr) {
   LLVM_VIRTUAL_REGISTER_NUMBER++;
   fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", vr.val);
 }
@@ -328,7 +328,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR) {
       return generateLoadGlobal(root->token.val.string);
     case LEFTVALUE_IDENTIFIER:
       generateStoreGlobal(root->token.val.string, rvalueVR);
-      return (LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType}; // TODO numType
+      return (LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType};
     case ASSIGN:
       return (LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType};
     default:
@@ -379,8 +379,8 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
       numType = entry->numType;
     }
 
-    result->vr = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType}; // TODO change type
-    result->alignBytes = 4; // TODO change alignment
+    result->vr = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType};
+    result->alignBytes = 4; // TODO change alignment?
     result->next = NULL;
 
     pushFreeRegister(result->vr);
