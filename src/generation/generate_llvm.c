@@ -3,7 +3,7 @@
 
 FILE* LLVM_OUTPUT;
 int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
-LLVMNode* LLVM_FREE_REGISTER_NUMBERS = NULL;
+LLVMNode* LLVM_FREE_REGISTERS = NULL;
 LLVMNode* LLVM_LOADED_REGISTERS = NULL;
 
 FILE* LLVM_GLOBALS_OUTPUT;
@@ -27,25 +27,32 @@ void pushLoadedRegister(LLVMValue vr) {
 
 void pushFreeRegister(LLVMValue vr) {
   LLVMNode* newNode = malloc(sizeof(LLVMNode));
-  newNode->val = num;
+  newNode->vr = vr;
   newNode->next = LLVM_FREE_REGISTERS;
   
   LLVM_FREE_REGISTERS = newNode;
 }
 
-int popFreeRegister(NumberType numType) {
-  LLVMNode* head = LLVM_FREE_REGISTERS;
-  while (head != NULL) {
-    if (head->
+LLVMValue popFreeRegister(NumberType numType) {
+  LLVMNode* cur = LLVM_FREE_REGISTERS;
+  LLVMNode* prev = NULL;
+  while (cur != NULL) {
+    if (cur->vr.numType == numType)
+      break;
 
-    head = head->next;
+    prev = cur;
+    cur = cur->next;
+  }
+  if (cur == NULL)
+    fatal(RC_ERROR, "No register of type %s\n", NUMBERTYPE_STRING[numType]);
+  
+  if (prev == NULL) {
+    LLVM_FREE_REGISTERS = cur->next;
+    return cur->vr;
   }
 
-  int result = LLVM_FREE_REGISTER_NUMBERS->val;
-  IntNode* old = LLVM_FREE_REGISTER_NUMBERS;
-  LLVM_FREE_REGISTER_NUMBERS = old->next;
-  free(old);
-  return result;
+  prev->next = cur->next;
+  return cur->vr;
 }
 
 int getNextVirtualRegisterNumber() {
@@ -125,10 +132,10 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr) {
 }
 
 LLVMValue generateStoreConstant(long constant, NumberType type) {
-  int registerNum = popFreeRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\tstore %s %ld, %s* %%%d\n", NUMBERTYPE_LLVM[type], constant, NUMBERTYPE_LLVM[type], registerNum);
+  LLVMValue vr = popFreeRegister(type);
+  fprintf(LLVM_OUTPUT, "\tstore %s %ld, %s* %%%d\n", NUMBERTYPE_LLVM[type], constant, NUMBERTYPE_LLVM[type], vr.val);
 
-  return (LLVMValue) {VIRTUAL_REGISTER, registerNum, type};
+  return vr;
 }
 
 LLVMValue generateAdd(LLVMValue leftVR, LLVMValue rightVR) {
@@ -362,7 +369,7 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
     result->alignBytes = 4; // TODO change alignment
     result->next = NULL;
 
-    pushFreeRegisterNumber(registerNumber);
+    pushFreeRegister(result->vr);
 
     return result;
   }
