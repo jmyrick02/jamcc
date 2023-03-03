@@ -51,8 +51,9 @@ int scanComment() {
 // Pass in the current scanned character
 // Returns true if this is a bitshift operator
 int scanBitshiftOperator(char c) {
-  if (next() != c) {
-    ungetc(c, GLOBAL_FILE_POINTER);
+  char c2 = next();
+  if (c2 != c) {
+    ungetc(c2, GLOBAL_FILE_POINTER);
     return 0;
   }
    

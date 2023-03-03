@@ -180,71 +180,6 @@ LLVMValue generateAshr(LLVMValue leftVR, LLVMValue rightVR) {
   return (LLVMValue) {VIRTUAL_REGISTER, outVRNum, leftVR.numType};
 }
 
-LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue rightVR) {
-  // Check for size incompatibilities
-  if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
-    leftVR = generateIntResize(leftVR, rightVR.numType); // Extend leftVR to rightVR's num type
-  } else if (NUMBERTYPE_SIZE[leftVR.numType] > NUMBERTYPE_SIZE[rightVR.numType]) {
-    rightVR = generateIntResize(rightVR, leftVR.numType); // Extend rightVR to leftVR's num type
-  }
-
-  LLVMValue result;
-  switch (token.type) {
-    case PLUS:
-      result = generateAdd(leftVR, rightVR);
-      break;
-    case MINUS:
-      result = generateSub(leftVR, rightVR);
-      break;
-    case STAR:
-      result = generateMul(leftVR, rightVR);
-      break;
-    case SLASH:
-      result = generateDiv(leftVR, rightVR);
-      break;
-    case BITSHIFT_LEFT:
-      result = generateShl(leftVR, rightVR);
-      break;
-    case BITSHIFT_RIGHT:
-      result = generateAshr(leftVR, rightVR);
-      break;
-    default:
-      fatal(RC_ERROR, "Expected binary arithmetic token but received '%s'", TOKENTYPE_STRING[token.type]);
-      break;
-  }
-
-  pushLoadedRegister(result);
-  return result;
-}
-
-LLVMValue generateLoadGlobal(char* string) {
-  SymbolTableEntry* globalEntry = getSymbolTableEntry(string);
-  if (globalEntry == NULL)
-    fatal(RC_ERROR, "Undeclared variable %s\n", string);
-
-  int outVR = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->numType], NUMBERTYPE_LLVM[globalEntry->numType], string);
-  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->numType};
-  pushLoadedRegister(result);
-  return result;
-}
-
-void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
-  SymbolTableEntry* globalEntry = getSymbolTableEntry(string);
-  if (globalEntry == NULL)
-    fatal(RC_ERROR, "Undeclared variable %s\n", string);
-
-  LLVMValue outVR = generateEnsureRegisterLoaded((LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType});
-  if (outVR.numType != globalEntry->numType)
-    outVR = generateIntResize(outVR, globalEntry->numType);
-  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->numType], string);
-}
-
-void generatePrintInt(LLVMValue vr) { // TODO how to print nonints?
-  LLVM_VIRTUAL_REGISTER_NUMBER++;
-  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", vr.val);
-}
-
 LLVMValue generateComparison(Token comparison, LLVMValue leftVR, LLVMValue rightVR) {
   // Check for size incompatibilities
   if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
@@ -286,6 +221,79 @@ LLVMValue generateComparison(Token comparison, LLVMValue leftVR, LLVMValue right
   return generateIntResize((LLVMValue) {VIRTUAL_REGISTER, boolOutVR, NUM_BOOL}, NUM_INT);
 }
 
+LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue rightVR) {
+  // Check for size incompatibilities
+  if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
+    leftVR = generateIntResize(leftVR, rightVR.numType); // Extend leftVR to rightVR's num type
+  } else if (NUMBERTYPE_SIZE[leftVR.numType] > NUMBERTYPE_SIZE[rightVR.numType]) {
+    rightVR = generateIntResize(rightVR, leftVR.numType); // Extend rightVR to leftVR's num type
+  }
+
+  LLVMValue result;
+  switch (token.type) {
+    case PLUS:
+      result = generateAdd(leftVR, rightVR);
+      break;
+    case MINUS:
+      result = generateSub(leftVR, rightVR);
+      break;
+    case STAR:
+      result = generateMul(leftVR, rightVR);
+      break;
+    case SLASH:
+      result = generateDiv(leftVR, rightVR);
+      break;
+    case BITSHIFT_LEFT:
+      result = generateShl(leftVR, rightVR);
+      break;
+    case BITSHIFT_RIGHT:
+      result = generateAshr(leftVR, rightVR);
+      break;
+    case EQ:
+    case NEQ:
+    case LT:
+    case LEQ:
+    case GT:
+    case GEQ:
+      result = generateComparison(token, leftVR, rightVR);
+      break;
+    default:
+      fatal(RC_ERROR, "Expected binary arithmetic token but received '%s'", TOKENTYPE_STRING[token.type]);
+      break;
+  }
+
+  pushLoadedRegister(result);
+  return result;
+}
+
+LLVMValue generateLoadGlobal(char* string) {
+  SymbolTableEntry* globalEntry = getSymbolTableEntry(string);
+  if (globalEntry == NULL)
+    fatal(RC_ERROR, "Undeclared variable %s\n", string);
+
+  int outVR = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->numType], NUMBERTYPE_LLVM[globalEntry->numType], string);
+  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->numType};
+  pushLoadedRegister(result);
+  return result;
+}
+
+void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
+  SymbolTableEntry* globalEntry = getSymbolTableEntry(string);
+  if (globalEntry == NULL)
+    fatal(RC_ERROR, "Undeclared variable %s\n", string);
+
+  LLVMValue outVR = generateEnsureRegisterLoaded((LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType});
+  if (outVR.numType != globalEntry->numType)
+    outVR = generateIntResize(outVR, globalEntry->numType);
+  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->numType], string);
+}
+
+void generatePrintInt(LLVMValue vr) { // TODO how to print nonints?
+  LLVM_VIRTUAL_REGISTER_NUMBER++;
+  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%%d)\n", vr.val);
+}
+
 LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR) {
   LLVMValue leftVR;
   LLVMValue rightVR;
@@ -302,6 +310,12 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR) {
     case SLASH:
     case BITSHIFT_LEFT:
     case BITSHIFT_RIGHT:
+    case EQ:
+    case NEQ:
+    case LT:
+    case LEQ:
+    case GT:
+    case GEQ:
       leftVR = generateEnsureRegisterLoaded(leftVR);
       rightVR = generateEnsureRegisterLoaded(rightVR);
       return generateBinaryArithmetic(root->token, leftVR, rightVR);
