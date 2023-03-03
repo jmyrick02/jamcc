@@ -16,8 +16,11 @@ ASTNode* parsePrintStatement() {
 
   ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {PRINT, 0};
-  result->left = parseBinaryExpression();
+  result->left = parseBinaryExpression(NUM_INT);
   result->right = NULL;
+
+  if (result->left->token.numType != NUM_INT)
+    fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.numType]);
 
   matchToken(SEMICOLON);
 
@@ -26,7 +29,9 @@ ASTNode* parsePrintStatement() {
 
 ASTNode* parseFactorialStatement() {
   matchToken(FACTORIAL);
-  Token literal = matchToken(INTEGER_LITERAL);
+  Token literal = matchToken(NUMBER_LITERAL);
+  if (literal.numType != NUM_INT)
+    fatal(RC_ERROR, "Must pass in integer literal to factorial statements\n");
 
   ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {PRINT, 0};
@@ -36,10 +41,10 @@ ASTNode* parseFactorialStatement() {
   result->right = NULL;
   cur->token = (Token) {STAR, 0};
 
-  int num = literal.val.integer;
+  int num = literal.val.num;
   while (num > 1) {
     cur->left = malloc(sizeof(ASTNode));
-    cur->left->token = (Token) {INTEGER_LITERAL, num};
+    cur->left->token = (Token) {NUMBER_LITERAL, num, NUM_INT};
     cur->left->left = NULL;
     cur->left->right = NULL;
 
@@ -51,7 +56,7 @@ ASTNode* parseFactorialStatement() {
     cur = cur->right;
     num--;
   }
-  cur->token = (Token) {INTEGER_LITERAL, 1};
+  cur->token = (Token) {NUMBER_LITERAL, (TokenVal) { .num = 1 }, NUM_INT};
 
   matchToken(SEMICOLON);
 
@@ -59,11 +64,31 @@ ASTNode* parseFactorialStatement() {
 }
 
 void parseDeclarationStatement() {
-  matchToken(INT);
+  Token cur = GLOBAL_TOKEN;
+  if (cur.type != SHORT && cur.type != INT && cur.type != LONG)
+    fatal(RC_ERROR, "Expected valid type declaration but received %s\n", TOKENTYPE_STRING[cur.type]);
+  scan();
+
   Token identifier = matchToken(IDENTIFIER);
 
-  updateSymbolTable(identifier.val.string, -1);
-  generateDeclareGlobal(identifier.val.string, 0);
+  NumberType type;
+  switch (cur.type) {
+    case SHORT:
+      type = NUM_SHORT;
+      break;
+    case INT:
+      type = NUM_INT;
+      break;
+    case LONG:
+      type = NUM_LONG;
+      break;
+    default:
+      fatal(RC_ERROR, "Invalid variable type %s\n", TOKENTYPE_STRING[cur.type]);
+      break;
+  }
+
+  updateSymbolTable(identifier.val.string, -1, type);
+  generateDeclareGlobal(identifier.val.string, 0, type);
 
   matchToken(SEMICOLON);
 }
@@ -71,15 +96,16 @@ void parseDeclarationStatement() {
 ASTNode* parseAssignmentStatement() {
   Token identifier = matchToken(IDENTIFIER);
 
-  if (getSymbolTableEntry(identifier.val.string) == NULL)
+  SymbolTableEntry* entry = getSymbolTableEntry(identifier.val.string);
+  if (entry == NULL)
     fatal(RC_ERROR, "Undefined variable %s\n", identifier.val.string);
 
   matchToken(ASSIGN);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->left = parseBinaryExpression();
+  result->left = parseBinaryExpression(GLOBAL_TOKEN.numType);
   result->right = malloc(sizeof(ASTNode));
-  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}};
+  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}, entry->numType};
   strcpy(result->right->token.val.string, identifier.val.string);
 
   matchToken(SEMICOLON);
@@ -99,7 +125,9 @@ ASTNode* parseStatement() {
       return parsePrintStatement();
     case FACTORIAL:
       return parseFactorialStatement();
+    case SHORT:
     case INT:
+    case LONG:
       parseDeclarationStatement();
       return NULL;
     case IDENTIFIER:

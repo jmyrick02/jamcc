@@ -4,4 +4,4 @@
 #include "../scan.h"
 #include "../generation/symboltable.h"
 
-ASTNode* parseBinaryExpression();
+ASTNode* parseBinaryExpression(NumberType numType);

@@ -14,12 +14,15 @@
  * @param fmt Format string for printed error
  * @param ... Varargs for printed error
  */
+
+extern int CUR_LINENUM;
+
 void fatal(ReturnCode rc, const char* fmt, ...)
 {
     va_list func_args;
 
     va_start(func_args, fmt);
-    fprintf(stderr, "%s%s%s", ERROR_RED "[", returnCodeStrings[rc], "] - " ANSI_RESET);
+    fprintf(stderr, "%s%s (Line number %d)%s", ERROR_RED "[", returnCodeStrings[rc], CUR_LINENUM, "] - " ANSI_RESET);
     vfprintf(stderr, fmt, func_args);
     va_end(func_args);
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "token.h"
+#include "generation/symboltable.h"
 
 #pragma once
 typedef struct ASTNode {

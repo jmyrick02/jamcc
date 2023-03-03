@@ -5,12 +5,15 @@ extern FILE* GLOBAL_FILE_POINTER;
 extern Token GLOBAL_TOKEN;
 
 // Precondition: terminal node token is scanned
-ASTNode* parseTerminalNode() {
+ASTNode* parseTerminalNode(NumberType numType) {
   ASTNode* result = malloc(sizeof(ASTNode));
 
   if (GLOBAL_TOKEN.type == END) {
     fatal(RC_ERROR, "Expected semicolon but encountered end of file");
-  } else if (GLOBAL_TOKEN.type == INTEGER_LITERAL) {
+  } else if (GLOBAL_TOKEN.type == NUMBER_LITERAL) {
+    if (GLOBAL_TOKEN.numType != numType)
+      fatal(RC_ERROR, "Number %ld is of type %s but expected %s\n", GLOBAL_TOKEN.val.num, NUMBERTYPE_STRING[GLOBAL_TOKEN.numType], NUMBERTYPE_STRING[numType]);
+
     result->token = GLOBAL_TOKEN;
     result->left = NULL;
     result->right = NULL;
@@ -18,6 +21,9 @@ ASTNode* parseTerminalNode() {
     SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
     if (entry == NULL)
       fatal(RC_ERROR, "Undeclared variable %s", GLOBAL_TOKEN.val.string);
+    if (entry->numType != numType)
+      fatal(RC_ERROR, "Variable %s is of type %s but expected %s\n", entry->identifierName, NUMBERTYPE_STRING[entry->numType], NUMBERTYPE_STRING[numType]); 
+
     result->token = GLOBAL_TOKEN;
     result->left = NULL;
     result->right = NULL;
@@ -37,19 +43,19 @@ int checkPrecedence(TokenType tokenType) {
   return PRECEDENCE[tokenType];
 }
 
-ASTNode* prattParse(int prevPrecedence) {
-  ASTNode* left = parseTerminalNode();
+ASTNode* prattParse(int prevPrecedence, NumberType numType) {
+  ASTNode* left = parseTerminalNode(numType);
   scan();
   
   TokenType tokenType = GLOBAL_TOKEN.type;
   while (tokenType != SEMICOLON && tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
     scan();
 
-    ASTNode* right = prattParse(PRECEDENCE[tokenType]);
+    ASTNode* right = prattParse(PRECEDENCE[tokenType], numType);
 
     // Join right subtree with current left subtree
     ASTNode* newLeft = malloc(sizeof(ASTNode));
-    newLeft->token = (Token) {tokenType, 0};
+    newLeft->token = (Token) {tokenType, 0, numType};
     newLeft->left = left;
     newLeft->right = right;
     left = newLeft;
@@ -63,6 +69,6 @@ ASTNode* prattParse(int prevPrecedence) {
   return left;
 }
 
-ASTNode* parseBinaryExpression() {
-  return prattParse(-1);
+ASTNode* parseBinaryExpression(NumberType numType) {
+  return prattParse(-1, numType);
 }
