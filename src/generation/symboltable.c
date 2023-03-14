@@ -36,15 +36,18 @@ void resizeSymbolTable(int factor) {
   length *= factor;
 }
 
-void updateSymbolTable(char* identifier, int val, NumberType numType) {
+void updateSymbolTable(SymbolTableEntry entry) {
+  SymbolTableEntry* newEntry = malloc(sizeof(SymbolTableEntry));
+  strcpy(newEntry->identifierName, entry.identifierName);
+  newEntry->type = entry.type;
+  newEntry->next = NULL;
+
+  char* identifier = entry.identifierName;
+
   int hashResult = hash(identifier);
 
   if (data[hashResult] == NULL) {
-    data[hashResult] = malloc(sizeof(SymbolTableEntry));
-    strcpy(data[hashResult]->identifierName, identifier);
-    data[hashResult]->val = val;
-    data[hashResult]->numType = numType;
-    data[hashResult]->next = NULL;
+    data[hashResult] = newEntry;
   } else {
     SymbolTableEntry* cur = data[hashResult];
 
@@ -55,12 +58,6 @@ void updateSymbolTable(char* identifier, int val, NumberType numType) {
       if (cur->next != NULL)
         cur = cur->next;
     } // We're now at the tail
-
-    SymbolTableEntry* newEntry = malloc(sizeof(SymbolTableEntry));
-    strcpy(newEntry->identifierName, identifier);
-    newEntry->val = val;
-    newEntry->next = NULL;
-    newEntry->numType = numType;
 
     cur->next = newEntry;
   }

@@ -4,4 +4,6 @@
 #include "../generation/symboltable.h"
 #include  "../generation/generate_llvm.h"
 
+Token matchToken(TokenType type);
+
 ASTNode* parseBlock();

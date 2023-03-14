@@ -1,4 +1,4 @@
-{
+void main() {
   long z;
   z = 10L;
   int a;

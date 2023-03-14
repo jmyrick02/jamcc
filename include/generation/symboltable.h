@@ -10,13 +10,12 @@
 #pragma once
 typedef struct SymbolTableEntry {
   char identifierName[MAX_IDENTIFIER_LENGTH + 1];
-  int val;
-  NumberType numType;
+  Type type;
   struct SymbolTableEntry* next;
 } SymbolTableEntry;
 
 void initSymbolTable(int len);
 
-void updateSymbolTable(char* identifier, int val, NumberType numType);
+void updateSymbolTable(SymbolTableEntry entry);
 
 SymbolTableEntry* getSymbolTableEntry(char* identifier);

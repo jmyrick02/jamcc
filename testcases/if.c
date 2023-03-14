@@ -1,4 +1,4 @@
-{
+void main() {
   if (3 > 4) {
     print 1;
   } else {

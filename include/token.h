@@ -17,11 +17,14 @@ typedef enum {
   PRINT,
   FACTORIAL,
   SEMICOLON,
+  VOID,
   SHORT,
   INT,
   LONG,
+  CHAR,
   IDENTIFIER,
   LEFTVALUE_IDENTIFIER,
+  FUNCTION,
   ASSIGN,
   EQ,
   NEQ,
@@ -57,11 +60,14 @@ static const int PRECEDENCE[] = {
   -1, // PRINT
   -1, // FACTORIAL
   -1, // SEMICOLON
+  -1, // VOID
   -1, // SHORT
   -1, // INT
   -1, // LONG
+  -1, // CHAR
   -1, // IDENTIFIER
   -1, // LEFTVALUE_IDENTIFIER
+  -1, // FUNCTION
   -1, // ASSIGN
   0, // EQ
   0, // NEQ
@@ -97,11 +103,14 @@ static const char* TOKENTYPE_STRING[] = {
   "print", // PRINT
   "factorial", // FACTORIAL
   ";", // SEMICOLON
+  "void", // VOID
   "short", // SHORT
   "int", // INT
   "long", // LONG
+  "char", // CHAR
   "identifier", // IDENTIFIER
   "leftvalue identifier", // LEFTVALUE_IDENTIFIER
+  "function", // FUNCTION
   "assign", // ASSIGN
   "==", // EQ
   "!=", // NEQ
@@ -159,8 +168,25 @@ static const char* NUMBERTYPE_LLVM[] = {
 };
 
 #pragma once
+typedef struct Function {
+  TokenType returnType;
+} Function;
+
+#pragma once
+typedef struct Number {
+  NumberType numType;
+  int registerNum;
+} Number;
+
+#pragma once
+typedef union Type {
+  Number number;
+  Function function;
+} Type;
+
+#pragma once
 typedef struct Token {
   TokenType type;
   TokenVal val;
-  NumberType numType;
+  Type valueType;
 } Token;

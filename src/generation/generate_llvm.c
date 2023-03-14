@@ -1,5 +1,6 @@
 #include "../../include/generation/generate_llvm.h"
 #include "../../include/parsing/statement.h"
+#include "../../include/parsing/function_declaration.h"
 
 FILE* LLVM_OUTPUT;
 int LLVM_VIRTUAL_REGISTER_NUMBER = 0;
@@ -11,6 +12,8 @@ LLVMNode* CONTINUE_LABELS = NULL;
 LLVMNode* BREAK_LABELS = NULL;
 
 FILE* LLVM_GLOBALS_OUTPUT;
+
+extern Token GLOBAL_TOKEN;
 
 extern char* ARG_FILEPATH;
 
@@ -101,6 +104,88 @@ LLVMValue getNextLabel() {
   return (LLVMValue) {LABEL, ++LLVM_LABEL_INDEX};
 }
 
+LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
+  if (root == NULL)
+    return NULL;
+
+  if (root->left != NULL || root->right != NULL) {
+    LLVMNode* left = NULL;
+    LLVMNode* center = NULL;
+    LLVMNode* right = NULL;
+    if (root->left != NULL) {
+      left = getStackEntriesFromBinaryExpression(root->left);
+    }
+    if (root->center != NULL) {
+      center = getStackEntriesFromBinaryExpression(root->center);
+    }
+    if (root->right != NULL) {
+      right = getStackEntriesFromBinaryExpression(root->right);
+    }
+
+    // Concatenate left, center, and right
+    LLVMNode* cur = NULL;
+    LLVMNode* head = NULL;
+    LLVMNode* tail = NULL;
+    if (left != NULL) {
+      head = left;
+      cur = left;
+      while (cur->next != NULL) {
+        cur = cur->next;
+      }
+      tail = cur;
+    }
+    if (center != NULL) {
+      if (head == NULL) {
+        head = center;
+      } else {
+        tail->next = center;
+      }
+      cur = center;
+      while (cur->next != NULL) {
+        cur = cur->next;
+      }
+      tail = cur;
+    }
+    if (right != NULL) {
+      if (head == NULL) {
+        head = right;
+      } else {
+        tail->next = right;
+      }
+      cur = right;
+      while (cur->next != NULL) {
+        cur = cur->next;
+      }
+      tail = cur;
+    }
+    return head;
+  } else { // Root is a terminal 
+    LLVMNode* result = malloc(sizeof(LLVMNode));
+
+    NumberType numType;
+    if (root->token.type == NUMBER_LITERAL) {
+      numType = root->token.valueType.number.numType;
+    } else if (root->token.type == IDENTIFIER) {
+      SymbolTableEntry* entry = getSymbolTableEntry(root->token.val.string);
+      if (entry == NULL)
+        fatal(RC_ERROR, "Undeclared variable %s while generating stack entries\n", root->token.val.string);
+
+      numType = entry->type.number.numType;
+    } else {
+      return NULL;
+    }
+
+    int registerNumber = getNextVirtualRegisterNumber();
+    result->val = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType};
+    result->alignBytes = 4; // TODO change alignment?
+    result->next = NULL;
+
+    pushFreeRegister(result->val);
+
+    return result;
+  }
+}
+
 void generatePreamble() {
   fprintf(LLVM_OUTPUT, "; ModuleID = '%s'\n", ARG_FILEPATH);
   fprintf(LLVM_OUTPUT, "source_filename = \"%s\"\n", ARG_FILEPATH);
@@ -114,12 +199,9 @@ void generatePreamble() {
   fprintf(LLVM_OUTPUT, "\n");
 
   fprintf(LLVM_OUTPUT, "; Function Attrs: noinline nounwind optnone uwtable\n");
-  fprintf(LLVM_OUTPUT, "define dso_local i32 @main() #0 {\n");
 }
 
 void generatePostamble() {
-  fprintf(LLVM_OUTPUT, "\tret i32 0\n");
-  fprintf(LLVM_OUTPUT, "}\n");
   fprintf(LLVM_OUTPUT, "\n");
   fprintf(LLVM_OUTPUT, "declare i32 @printf(i8*, ...) #1\n"); 
   fprintf(LLVM_OUTPUT, "attributes #0 = { %s }\n", ATTRIBUTES_0);
@@ -131,6 +213,24 @@ void generatePostamble() {
   fprintf(LLVM_OUTPUT, "!1 = !{i32 7, !\"uwtable\", i32 2}\n");
   fprintf(LLVM_OUTPUT, "!2 = !{i32 7, !\"frame-pointer\", i32 2}\n");
   fprintf(LLVM_OUTPUT, "!3 = !{!\"%s\"}\n", CLANG_VERSION);
+}
+
+void generateFunctionPreamble(char* name) {
+  SymbolTableEntry* entry = getSymbolTableEntry(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Generating undeclared function preamble\n");
+  
+  // TODO don't hardcode void llvm representation
+  fprintf(LLVM_OUTPUT, "define dso_local %s @%s() #0 {\n", "void", name);
+}
+
+void generateFunctionPostamble(char* name) {
+  SymbolTableEntry* entry = getSymbolTableEntry(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "ried to close undeclared function %s\n", name);
+
+  // TODO don't hardcode void llvm representation
+  fprintf(LLVM_OUTPUT, "\tret void\n}\n\n");
 }
 
 LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
@@ -314,8 +414,8 @@ LLVMValue generateLoadGlobal(char* string) {
     fatal(RC_ERROR, "Undeclared variable %s encountered while loading global\n", string);
 
   int outVR = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->numType], NUMBERTYPE_LLVM[globalEntry->numType], string);
-  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->numType};
+  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->type.number.numType], NUMBERTYPE_LLVM[globalEntry->type.number.numType], string);
+  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->type.number.numType};
   pushLoadedRegister(result);
   return result;
 }
@@ -326,9 +426,9 @@ void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
     fatal(RC_ERROR, "Undeclared variable %s encountered while storing global\n", string);
 
   LLVMValue outVR = generateEnsureRegisterLoaded((LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType});
-  if (outVR.numType != globalEntry->numType)
-    outVR = generateIntResize(outVR, globalEntry->numType);
-  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->numType], string);
+  if (outVR.numType != globalEntry->type.number.numType)
+    outVR = generateIntResize(outVR, globalEntry->type.number.numType);
+  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->type.number.numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->type.number.numType], string);
 }
 
 void generateLabel(LLVMValue label) {
@@ -382,6 +482,12 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR, TokenType parentOpe
     generateFromAST(root->center, (LLVMValue) {NONE}, root->token.type);
     generateFromAST(root->right, (LLVMValue) {NONE}, root->token.type);
     return (LLVMValue) {NONE};
+  } else if (root->token.type == FUNCTION) {
+    generateFunctionPreamble(root->token.val.string);
+    generateStackAllocation(getStackEntriesFromBinaryExpression(root));
+    generateFromAST(root->left, (LLVMValue) {NONE}, root->token.type);
+    generateFunctionPostamble(root->token.val.string);
+    return (LLVMValue) {NONE};
   }
 
   if (root->left != NULL)
@@ -413,7 +519,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR, TokenType parentOpe
         return generateComparison(root->token, leftVR, rightVR);
       }
     case NUMBER_LITERAL:
-        return generateStoreConstant(root->token.val.num, root->token.numType);
+      return generateStoreConstant(root->token.val.num, root->token.valueType.number.numType);
     case PRINT:
       leftVR = generateEnsureRegisterLoaded(leftVR);
       generatePrintInt(leftVR);
@@ -514,87 +620,7 @@ void generateDeclareGlobal(char* name, int value, NumberType numType) {
   fprintf(LLVM_GLOBALS_OUTPUT, "@%s = global %s %d\n", name, NUMBERTYPE_LLVM[numType], value);
 }
 
-LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
-  if (root == NULL)
-    return NULL;
 
-  if (root->left != NULL || root->right != NULL) {
-    LLVMNode* left = NULL;
-    LLVMNode* center = NULL;
-    LLVMNode* right = NULL;
-    if (root->left != NULL) {
-      left = getStackEntriesFromBinaryExpression(root->left);
-    }
-    if (root->center != NULL) {
-      center = getStackEntriesFromBinaryExpression(root->center);
-    }
-    if (root->right != NULL) {
-      right = getStackEntriesFromBinaryExpression(root->right);
-    }
-
-    // Concatenate left, center, and right
-    LLVMNode* cur = NULL;
-    LLVMNode* head = NULL;
-    LLVMNode* tail = NULL;
-    if (left != NULL) {
-      head = left;
-      cur = left;
-      while (cur->next != NULL) {
-        cur = cur->next;
-      }
-      tail = cur;
-    }
-    if (center != NULL) {
-      if (head == NULL) {
-        head = center;
-      } else {
-        tail->next = center;
-      }
-      cur = center;
-      while (cur->next != NULL) {
-        cur = cur->next;
-      }
-      tail = cur;
-    }
-    if (right != NULL) {
-      if (head == NULL) {
-        head = right;
-      } else {
-        tail->next = right;
-      }
-      cur = right;
-      while (cur->next != NULL) {
-        cur = cur->next;
-      }
-      tail = cur;
-    }
-    return head;
-  } else { // Root is a terminal 
-    LLVMNode* result = malloc(sizeof(LLVMNode));
-
-    NumberType numType;
-    if (root->token.type == NUMBER_LITERAL) {
-      numType = root->token.numType;
-    } else if (root->token.type == IDENTIFIER) {
-      SymbolTableEntry* entry = getSymbolTableEntry(root->token.val.string);
-      if (entry == NULL)
-        fatal(RC_ERROR, "Undeclared variable %s while generating stack entries\n", root->token.val.string);
-
-      numType = entry->numType;
-    } else {
-      return NULL;
-    }
-
-    int registerNumber = getNextVirtualRegisterNumber();
-    result->val = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType};
-    result->alignBytes = 4; // TODO change alignment?
-    result->next = NULL;
-
-    pushFreeRegister(result->val);
-
-    return result;
-  }
-}
 
 // TODO scuffed
 void injectGlobals() {
@@ -636,9 +662,15 @@ void injectGlobals() {
 void generateLLVM() {
   generatePreamble(); 
   
-  ASTNode* root = parseBlock();
-  if (root != NULL) {
-    generateStackAllocation(getStackEntriesFromBinaryExpression(root));
+  while (GLOBAL_TOKEN.type != END) {
+    // reinit
+    LLVM_VIRTUAL_REGISTER_NUMBER = 0;
+    LLVM_FREE_REGISTERS = NULL;
+    LLVM_LOADED_REGISTERS = NULL;
+    CONTINUE_LABELS = NULL;
+    BREAK_LABELS = NULL;
+
+    ASTNode* root = parseFunctionDeclaration();
     generateFromAST(root, (LLVMValue) {NONE}, root->token.type);
   }
 
