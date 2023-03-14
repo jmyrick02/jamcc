@@ -7,6 +7,7 @@
 typedef struct ASTNode {
   Token token;
   struct ASTNode* left;
+  struct ASTNode* center;
   struct ASTNode* right;
 } ASTNode;
 

@@ -2,7 +2,12 @@
 
 #pragma once
 typedef enum {
-  PLUS = 0, 
+  UNKNOWN_TOKEN = 0,
+  LEFT_BRACE,
+  RIGHT_BRACE,
+  LEFT_PAREN,
+  RIGHT_PAREN,
+  PLUS, 
   MINUS, 
   STAR, 
   SLASH, 
@@ -24,11 +29,21 @@ typedef enum {
   LEQ,
   GT,
   GEQ,
+  IF,
+  ELSE,
+  WHILE,
+  FOR,
+  AST_GLUE,
   END,
 } TokenType;
 
 #pragma once
 static const int PRECEDENCE[] = {
+  -1, // UNKNOWN_TOKEN
+  -1, // LEFT_BRACE
+  -1, // RIGHT_BRACE
+  -1, // LEFT_PAREN
+  -1, // RIGHT_PAREN
   3, // PLUS
   3, // MINUS
   4, // STAR
@@ -51,11 +66,21 @@ static const int PRECEDENCE[] = {
   1, // LEQ
   1, // GT
   1, // GEQ
+  -1, // IF
+  -1, // ELSE
+  -1, // WHILE
+  -1, // FOR
+  -1, // AST_GLUE
   -1, // END 
 };
 
 #pragma once
 static const char* TOKENTYPE_STRING[] = {
+  "unknown token", // UNKNOWN_TOKEN
+  "{", // LEFT_BRACE
+  "}", // RIGHT_BRACE
+  "(", // LEFT_PAREN
+  ")", // RIGHT_PAREN
   "+", // PLUS
   "-", // MINUS
   "*", // STAR
@@ -78,6 +103,11 @@ static const char* TOKENTYPE_STRING[] = {
   "<=", // LEQ
   ">", // GT
   ">=", // GEQ
+  "if", // IF
+  "else", // ELSE
+  "while", // WHILE
+  "for", // FOR
+  "ast glue", // AST_GLUE
   "EOF", // END
 };
 

@@ -4,4 +4,4 @@
 #include "../generation/symboltable.h"
 #include  "../generation/generate_llvm.h"
 
-ASTNode* parseStatement();
+ASTNode* parseBlock();

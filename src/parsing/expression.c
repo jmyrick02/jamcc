@@ -48,7 +48,8 @@ ASTNode* prattParse(int prevPrecedence, NumberType numType) {
   scan();
   
   TokenType tokenType = GLOBAL_TOKEN.type;
-  while (tokenType != SEMICOLON && tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
+  // TODO Parens in binary expression?
+  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
     scan();
 
     ASTNode* right = prattParse(PRECEDENCE[tokenType], numType);

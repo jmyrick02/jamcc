@@ -3,6 +3,7 @@
 #pragma once
 typedef enum {
   VIRTUAL_REGISTER = 0,
+  LABEL,
   NONE,
 } LLVMValueType;
 

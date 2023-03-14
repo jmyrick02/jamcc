@@ -143,6 +143,18 @@ void scan() {
     case EOF:
       token.type = END;
       break;
+    case '{':
+      token.type = LEFT_BRACE;
+      break;
+    case '}':
+      token.type = RIGHT_BRACE;
+      break;
+    case '(':
+      token.type = LEFT_PAREN;
+      break;
+    case ')':
+      token.type = RIGHT_PAREN;
+      break;
     case '+':
       token.type = PLUS;
       break;
@@ -262,9 +274,6 @@ void scan() {
         scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
         
         // Check keywords
-        const char KEYWORD_PRINT[MAX_IDENTIFIER_LENGTH + 1] = "print";
-        const char KEYWORD_FACTORIAL[MAX_IDENTIFIER_LENGTH + 1] = "factorial"; 
-        const char KEYWORD_INT[MAX_IDENTIFIER_LENGTH + 1] = "int";
         if (strcmp(identifierBuffer, "print") == 0) {
           token.type = PRINT;
         } else if (strcmp(identifierBuffer, "factorial") == 0) {
@@ -275,6 +284,14 @@ void scan() {
           token.type = INT;
         } else if (strcmp(identifierBuffer, "long") == 0) {
           token.type = LONG;
+        } else if (strcmp(identifierBuffer, "if") == 0) {
+          token.type = IF;
+        } else if (strcmp(identifierBuffer, "else") == 0) {
+          token.type = ELSE;
+        } else if (strcmp(identifierBuffer, "while") == 0) {
+          token.type = WHILE;
+        } else if (strcmp(identifierBuffer, "for") == 0) {
+          token.type = FOR;
         } else {
           token.type = IDENTIFIER;
           switch (GLOBAL_TOKEN.type) {
@@ -294,7 +311,7 @@ void scan() {
               {
                 SymbolTableEntry* entry = getSymbolTableEntry(identifierBuffer);
                 if (entry == NULL)
-                  fatal(RC_ERROR, "Invalid variable declaration");
+                  fatal(RC_ERROR, "Invalid variable declaration for %s\n", identifierBuffer);
                 token.numType = entry->numType;
               }
               break;

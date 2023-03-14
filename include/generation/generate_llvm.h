@@ -7,4 +7,8 @@
 
 void generateDeclareGlobal(char* name, int value, NumberType numType);
 
+LLVMValue generateIf(ASTNode* root);
+
+LLVMValue generateWhile(ASTNode* root);
+
 void generateLLVM();

@@ -15,14 +15,12 @@ ASTNode* parsePrintStatement() {
   matchToken(PRINT);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {PRINT, 0};
+  result->token = (Token) {PRINT};
   result->left = parseBinaryExpression(NUM_INT);
   result->right = NULL;
 
   if (result->left->token.numType != NUM_INT)
     fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.numType]);
-
-  matchToken(SEMICOLON);
 
   return result;
 }
@@ -58,8 +56,6 @@ ASTNode* parseFactorialStatement() {
   }
   cur->token = (Token) {NUMBER_LITERAL, (TokenVal) { .num = 1 }, NUM_INT};
 
-  matchToken(SEMICOLON);
-
   return result;
 }
 
@@ -89,8 +85,6 @@ void parseDeclarationStatement() {
 
   updateSymbolTable(identifier.val.string, -1, type);
   generateDeclareGlobal(identifier.val.string, 0, type);
-
-  matchToken(SEMICOLON);
 }
 
 ASTNode* parseAssignmentStatement() {
@@ -103,39 +97,173 @@ ASTNode* parseAssignmentStatement() {
   matchToken(ASSIGN);
 
   ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {ASSIGN};
   result->left = parseBinaryExpression(GLOBAL_TOKEN.numType);
   result->right = malloc(sizeof(ASTNode));
   result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}, entry->numType};
   strcpy(result->right->token.val.string, identifier.val.string);
 
+  return result;
+}
+
+ASTNode* parseIf() {
+  matchToken(IF);
+  matchToken(LEFT_PAREN);
+
+  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.numType);
+  if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
+    fatal(RC_ERROR, "If statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
+  
+  matchToken(RIGHT_PAREN);
+
+  ASTNode* block = parseBlock();
+  ASTNode* negativeBlock = NULL;
+  if (GLOBAL_TOKEN.type == ELSE) {
+    matchToken(ELSE);
+    negativeBlock = parseBlock();
+  }
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {IF};
+  result->left = condition;
+  result->center = block;
+  result->right = negativeBlock;
+  return result;
+}
+
+ASTNode* parseWhile() {
+  matchToken(WHILE);
+  matchToken(LEFT_PAREN);
+
+  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.numType);
+  if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
+    fatal(RC_ERROR, "While statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
+  
+  matchToken(RIGHT_PAREN);
+
+  ASTNode* block = parseBlock();
+  
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {WHILE};
+  result->left = condition;
+  result->center = NULL;
+  result->right = block;
+  return result;
+}
+
+ASTNode* parseFor() {
+  matchToken(FOR);
+  matchToken(LEFT_PAREN);
+
+  ASTNode* preamble = parseAssignmentStatement();
   matchToken(SEMICOLON);
+
+  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.numType);
+  if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
+    fatal(RC_ERROR, "For statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
+  matchToken(SEMICOLON);
+
+  ASTNode* postamble = parseAssignmentStatement();
+  matchToken(RIGHT_PAREN);
+
+  ASTNode* block = parseBlock();
+
+  ASTNode* glue = malloc(sizeof(ASTNode));
+  glue->token = (Token) {AST_GLUE};
+  glue->left = block;
+  glue->center = NULL;
+  glue->right = postamble;
+
+  ASTNode* whileNode = malloc(sizeof(ASTNode));
+  whileNode->token = (Token) {WHILE};
+  whileNode->left = condition;
+  whileNode->center = NULL;
+  whileNode->right = glue;
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {AST_GLUE};
+  result->left = preamble;
+  result->center = NULL;
+  result->right = whileNode;
 
   return result;
 }
 
-ASTNode* parseEnd() {
-  ASTNode* endNode = malloc(sizeof(ASTNode));
-  endNode->token = (Token) {END, 0};
-  return endNode;
-}
+ASTNode* parseBlock() {
+  ASTNode* root = malloc(sizeof(ASTNode));
+  root->token = (Token) {UNKNOWN_TOKEN};
+  root->left = NULL;
+  root->center = NULL;
+  root->right = NULL;
 
-ASTNode* parseStatement() {
-  switch (GLOBAL_TOKEN.type) {
-    case PRINT:
-      return parsePrintStatement();
-    case FACTORIAL:
-      return parseFactorialStatement();
-    case SHORT:
-    case INT:
-    case LONG:
-      parseDeclarationStatement();
-      return NULL;
-    case IDENTIFIER:
-      return parseAssignmentStatement();
-    case END:
-      return parseEnd();
-    default:
-      fatal(RC_ERROR, "Expected valid statement, but got %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
-      return NULL;
+  ASTNode* left = NULL;
+
+  matchToken(LEFT_BRACE);
+
+  while (1) {
+    int matchSemicolon = 1;
+    int returnLeft = 0;
+
+    switch (GLOBAL_TOKEN.type) {
+      case PRINT:
+        root = parsePrintStatement();
+        break;
+      case FACTORIAL:
+        root = parseFactorialStatement();
+        break;
+      case SHORT:
+      case INT:
+      case LONG:
+        parseDeclarationStatement();
+        root = malloc(sizeof(ASTNode));
+        root->token.type = UNKNOWN_TOKEN;
+        root->left = NULL;
+        root->center = NULL;
+        root->right = NULL;
+        break;
+      case IDENTIFIER:
+        root = parseAssignmentStatement();
+        break;
+      case IF:
+        root = parseIf();
+        matchSemicolon = 0;
+        break;
+      case WHILE:
+        root = parseWhile();
+        matchSemicolon = 0;
+        break;
+      case FOR:
+        root = parseFor();
+        matchSemicolon = 0;
+        break;
+      case RIGHT_BRACE:
+        matchToken(RIGHT_BRACE);
+        matchSemicolon = 0;
+        returnLeft = 1;
+        break;
+      default:
+        fatal(RC_ERROR, "Expected valid statement in block, but got %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
+        break;
+    }
+
+    if (returnLeft) {
+      return left;
+    }
+
+    if (matchSemicolon)
+      matchToken(SEMICOLON);
+
+    if (root->token.type != UNKNOWN_TOKEN) {
+      if (left == NULL) {
+        left = root;
+      } else {
+        ASTNode* oldLeft = left;
+        left = malloc(sizeof(ASTNode));
+        left->token = (Token) {AST_GLUE};
+        left->left = oldLeft;
+        left->center = NULL;
+        left->right = root;
+      }
+    }
   }
 }
