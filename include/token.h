@@ -138,6 +138,7 @@ typedef union TokenVal {
 #pragma once
 typedef enum {
   NUM_BOOL = 0,
+  NUM_CHAR,
   NUM_SHORT,
   NUM_INT,
   NUM_LONG,
@@ -146,6 +147,7 @@ typedef enum {
 #pragma once
 static const int NUMBERTYPE_SIZE[] = {
   1, // NUM_BOOL
+  8, // NUM_CHAR
   16, // NUM_SHORT
   32, // NUM_INT
   64, // NUM_LONG
@@ -154,6 +156,7 @@ static const int NUMBERTYPE_SIZE[] = {
 #pragma once
 static const char* NUMBERTYPE_STRING[] = {
   "bool", // NUM_BOOL
+  "char", // NUM_CHAR
   "short", // NUM_SHORT
   "int", // NUM_SHORT
   "long", // NUM_LONG
@@ -162,6 +165,7 @@ static const char* NUMBERTYPE_STRING[] = {
 #pragma once
 static const char* NUMBERTYPE_LLVM[] = {
   "i1", // NUM_BOOL
+  "i8", // NUM_CHAR
   "i16", // NUM_SHORT
   "i32", // NUM_INT
   "i64", // NUM_LONG

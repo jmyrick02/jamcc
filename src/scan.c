@@ -306,6 +306,18 @@ void scan() {
             case VOID:
               token.valueType = (Type) { .function = (Function) {VOID} };
               break;
+            case CHAR:
+              {
+                token.valueType = (Type) { .number = (Number) {NUM_CHAR} };
+
+                SymbolTableEntry entry;
+                strcpy(entry.identifierName, identifierBuffer);
+                entry.type = (Type) { .number = (Number) {NUM_CHAR, -1}};
+                entry.next = NULL;
+
+                updateSymbolTable(entry);
+              }
+              break;
             case SHORT:
               {
                 token.valueType = (Type) { .number = (Number) {NUM_SHORT} };

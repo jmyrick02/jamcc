@@ -620,8 +620,6 @@ void generateDeclareGlobal(char* name, int value, NumberType numType) {
   fprintf(LLVM_GLOBALS_OUTPUT, "@%s = global %s %d\n", name, NUMBERTYPE_LLVM[numType], value);
 }
 
-
-
 // TODO scuffed
 void injectGlobals() {
   LLVM_OUTPUT = fopen("out.ll", "r");

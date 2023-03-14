@@ -69,6 +69,9 @@ void parseDeclarationStatement() {
 
   NumberType type;
   switch (cur.type) {
+    case CHAR:
+      type = NUM_CHAR;
+      break;
     case SHORT:
       type = NUM_SHORT;
       break;
@@ -85,7 +88,7 @@ void parseDeclarationStatement() {
 
   SymbolTableEntry entry;
   strcpy(entry.identifierName, identifier.val.string);
-  entry.type = (Type) { .number = (Number) {type, -1}};
+  entry.type = (Type) { .number = (Number) {type, -1} };
   entry.next = NULL;
 
   updateSymbolTable(entry);
