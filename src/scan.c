@@ -292,6 +292,10 @@ void scan() {
           token.type = WHILE;
         } else if (strcmp(identifierBuffer, "for") == 0) {
           token.type = FOR;
+        } else if (strcmp(identifierBuffer, "break") == 0) {
+          token.type = BREAK;
+        } else if (strcmp(identifierBuffer, "continue") == 0) {
+          token.type = CONTINUE;
         } else {
           token.type = IDENTIFIER;
           switch (GLOBAL_TOKEN.type) {

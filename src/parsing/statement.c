@@ -163,7 +163,19 @@ ASTNode* parseFor() {
     fatal(RC_ERROR, "For statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
   matchToken(SEMICOLON);
 
-  ASTNode* postamble = parseAssignmentStatement();
+  ASTNode* postamble = malloc(sizeof(ASTNode));
+  postamble->token = (Token) {AST_GLUE};
+  
+  // Add label to for postamble
+  postamble->left = malloc(sizeof(ASTNode));
+  int labelNum = getNextLabel().val;
+  postamble->left->token = (Token) {LABEL_TOKEN, labelNum};
+  postamble->left->left = NULL;
+  postamble->left->center = NULL;
+  postamble->left->right = NULL;
+  
+  postamble->center = NULL;
+  postamble->right = parseAssignmentStatement();
   matchToken(RIGHT_PAREN);
 
   ASTNode* block = parseBlock();
@@ -185,6 +197,30 @@ ASTNode* parseFor() {
   result->left = preamble;
   result->center = NULL;
   result->right = whileNode;
+
+  return result;
+}
+
+ASTNode* parseBreak() {
+  matchToken(BREAK);
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {BREAK};
+  result->left = NULL;
+  result->center = NULL;
+  result->right = NULL;
+
+  return result;
+}
+
+ASTNode* parseContinue() {
+  matchToken(CONTINUE);
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  result->token = (Token) {CONTINUE};
+  result->left = NULL;
+  result->center = NULL;
+  result->right = NULL;
 
   return result;
 }
@@ -235,6 +271,12 @@ ASTNode* parseBlock() {
       case FOR:
         root = parseFor();
         matchSemicolon = 0;
+        break;
+      case BREAK:
+        root = parseBreak();
+        break;
+      case CONTINUE:
+        root = parseContinue();
         break;
       case RIGHT_BRACE:
         matchToken(RIGHT_BRACE);

@@ -16,7 +16,7 @@ typedef struct LLVMValue {
 
 #pragma once
 typedef struct LLVMNode {
-  LLVMValue vr;
+  LLVMValue val;
   int alignBytes;
   struct LLVMNode* next;
 } LLVMNode;

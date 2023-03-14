@@ -5,6 +5,8 @@
 #include "../llvm.h"
 #include "../scan.h"
 
+LLVMValue getNextLabel();
+
 void generateDeclareGlobal(char* name, int value, NumberType numType);
 
 LLVMValue generateIf(ASTNode* root);

@@ -7,6 +7,9 @@ LLVMNode* LLVM_FREE_REGISTERS = NULL;
 LLVMNode* LLVM_LOADED_REGISTERS = NULL;
 int LLVM_LABEL_INDEX = 0;
 
+LLVMNode* CONTINUE_LABELS = NULL;
+LLVMNode* BREAK_LABELS = NULL;
+
 FILE* LLVM_GLOBALS_OUTPUT;
 
 extern char* ARG_FILEPATH;
@@ -22,7 +25,7 @@ extern char* ARG_FILEPATH;
 
 void pushLoadedRegister(LLVMValue vr) {
   LLVMNode* newNode = malloc(sizeof(LLVMNode));
-  newNode->vr = vr;
+  newNode->val = vr;
   newNode->next = LLVM_LOADED_REGISTERS;
 
   LLVM_LOADED_REGISTERS = newNode;
@@ -30,17 +33,33 @@ void pushLoadedRegister(LLVMValue vr) {
 
 void pushFreeRegister(LLVMValue vr) {
   LLVMNode* newNode = malloc(sizeof(LLVMNode));
-  newNode->vr = vr;
+  newNode->val = vr;
   newNode->next = LLVM_FREE_REGISTERS;
   
   LLVM_FREE_REGISTERS = newNode;
+}
+
+void pushContinueLabel(LLVMValue label) {
+  LLVMNode* newNode = malloc(sizeof(LLVMNode));
+  newNode->val = label;
+  newNode->next = CONTINUE_LABELS;
+
+  CONTINUE_LABELS = newNode;
+}
+
+void pushBreakLabel(LLVMValue label) {
+  LLVMNode* newNode = malloc(sizeof(LLVMNode));
+  newNode->val = label;
+  newNode->next = BREAK_LABELS;
+
+  BREAK_LABELS = newNode;
 }
 
 LLVMValue popFreeRegister(NumberType numType) {
   LLVMNode* cur = LLVM_FREE_REGISTERS;
   LLVMNode* prev = NULL;
   while (cur != NULL) {
-    if (cur->vr.numType == numType)
+    if (cur->val.numType == numType)
       break;
 
     prev = cur;
@@ -51,11 +70,27 @@ LLVMValue popFreeRegister(NumberType numType) {
   
   if (prev == NULL) {
     LLVM_FREE_REGISTERS = cur->next;
-    return cur->vr;
+    return cur->val;
   }
 
   prev->next = cur->next;
-  return cur->vr;
+  return cur->val;
+}
+
+LLVMValue popContinueLabel() {
+  LLVMNode* head = CONTINUE_LABELS;
+  CONTINUE_LABELS = CONTINUE_LABELS->next;
+  LLVMValue result = head->val;
+  free(head);
+  return result;
+}
+
+LLVMValue popBreakLabel() {
+  LLVMNode* head = BREAK_LABELS;
+  BREAK_LABELS = BREAK_LABELS->next;
+  LLVMValue result = head->val;
+  free(head);
+  return result;
 }
 
 int getNextVirtualRegisterNumber() {
@@ -114,7 +149,7 @@ LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
 void generateStackAllocation(LLVMNode* head) {
   LLVMNode* cur = head;
   while (cur != NULL) {
-    fprintf(LLVM_OUTPUT, "\t%%%d = alloca %s, align %d\n", cur->vr.val, NUMBERTYPE_LLVM[cur->vr.numType], cur->alignBytes);
+    fprintf(LLVM_OUTPUT, "\t%%%d = alloca %s, align %d\n", cur->val.val, NUMBERTYPE_LLVM[cur->val.numType], cur->alignBytes);
     cur = cur->next;
   }
 }
@@ -123,7 +158,7 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr) {
   // Check if register is loaded
   LLVMNode* cur = LLVM_LOADED_REGISTERS;
   while (cur != NULL) {
-    if (cur->vr.val == vr.val) { // Register is loaded
+    if (cur->val.val == vr.val) { // Register is loaded
       return vr;
     }
     cur = cur->next;
@@ -390,6 +425,25 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR, TokenType parentOpe
       return (LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType};
     case ASSIGN:
       return (LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType};
+    case LABEL_TOKEN:
+      {
+        LLVMValue label = (LLVMValue) {LABEL, root->token.val.num};
+        generateJump(label);
+        generateLabel(label);
+        return (LLVMValue) {NONE, 0};
+      }
+    case BREAK:
+      if (BREAK_LABELS == NULL)
+        fatal(RC_ERROR, "Break statement not valid here!\n");
+      LLVM_VIRTUAL_REGISTER_NUMBER++; // TODO WHY??
+      generateJump(BREAK_LABELS->val);
+      return (LLVMValue) {NONE, 0};
+    case CONTINUE:
+      if (CONTINUE_LABELS == NULL)
+        fatal(RC_ERROR, "Continue statement not valid here!\n");
+      LLVM_VIRTUAL_REGISTER_NUMBER++; // TODO WHY??
+      generateJump(CONTINUE_LABELS->val);
+      return (LLVMValue) {NONE, 0};
     default:
       fatal(RC_ERROR, "Encountered bad operand while evaluating expression: %s", TOKENTYPE_STRING[root->token.type]);
       return leftVR; 
@@ -431,6 +485,16 @@ LLVMValue generateWhile(ASTNode* root) {
   LLVMValue conditionLabel = getNextLabel();
   LLVMValue endLabel = getNextLabel();
 
+  pushBreakLabel(endLabel);
+
+  // Continue label depends on whether for or while loop
+  if (root->right->token.type == AST_GLUE && root->right->right->left->token.type == LABEL_TOKEN) { // This is a for loop
+    LLVMValue postambleLabel = (LLVMValue) {LABEL, root->right->right->left->token.val.num};
+    pushContinueLabel(postambleLabel);
+  } else { // This is a while loop
+    pushContinueLabel(conditionLabel);
+  }
+
   generateJump(conditionLabel);
   generateLabel(conditionLabel);
 
@@ -439,6 +503,9 @@ LLVMValue generateWhile(ASTNode* root) {
 
   generateJump(conditionLabel);
   generateLabel(endLabel);
+
+  popContinueLabel();
+  popBreakLabel();
 
   return (LLVMValue) {NONE};
 }
@@ -519,11 +586,11 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
     }
 
     int registerNumber = getNextVirtualRegisterNumber();
-    result->vr = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType};
+    result->val = (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType};
     result->alignBytes = 4; // TODO change alignment?
     result->next = NULL;
 
-    pushFreeRegister(result->vr);
+    pushFreeRegister(result->val);
 
     return result;
   }

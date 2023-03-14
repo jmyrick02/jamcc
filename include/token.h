@@ -33,6 +33,9 @@ typedef enum {
   ELSE,
   WHILE,
   FOR,
+  BREAK,
+  CONTINUE,
+  LABEL_TOKEN,
   AST_GLUE,
   END,
 } TokenType;
@@ -70,6 +73,9 @@ static const int PRECEDENCE[] = {
   -1, // ELSE
   -1, // WHILE
   -1, // FOR
+  -1, // BREAK
+  -1, // CONTINUE
+  -1, // LABEL_TOKEN
   -1, // AST_GLUE
   -1, // END 
 };
@@ -107,6 +113,9 @@ static const char* TOKENTYPE_STRING[] = {
   "else", // ELSE
   "while", // WHILE
   "for", // FOR
+  "break", // BREAK
+  "continue", // CONTINUE
+  "label", // LABEL_TOKEN
   "ast glue", // AST_GLUE
   "EOF", // END
 };
