@@ -406,7 +406,7 @@ LLVMValue generateIf(ASTNode* root) {
     generateFromAST(root->left, falseLabel, root->token.type);
     generateFromAST(root->center, (LLVMValue) {NONE}, root->token.type);
   } else {
-    fatal(RC_ERROR, "ASTNode mssing left or middle child\n");
+    fatal(RC_ERROR, "ASTNode missing left or middle child\n");
   }
 
   if (root->right != NULL) {
@@ -570,8 +570,10 @@ void generateLLVM() {
   generatePreamble(); 
   
   ASTNode* root = parseBlock();
-  generateStackAllocation(getStackEntriesFromBinaryExpression(root));
-  generateFromAST(root, (LLVMValue) {NONE}, root->token.type);
+  if (root != NULL) {
+    generateStackAllocation(getStackEntriesFromBinaryExpression(root));
+    generateFromAST(root, (LLVMValue) {NONE}, root->token.type);
+  }
 
   generatePostamble();
 
