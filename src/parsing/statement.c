@@ -298,7 +298,9 @@ ASTNode* parseBlock() {
     }
 
     if (returnLeft) {
-      return left;
+      if (left != NULL)
+        return left;
+      return root;
     }
 
     if (matchSemicolon)
