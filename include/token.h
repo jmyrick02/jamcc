@@ -25,6 +25,8 @@ typedef enum {
   IDENTIFIER,
   LEFTVALUE_IDENTIFIER,
   FUNCTION,
+  FUNCTION_CALL,
+  RETURN,
   ASSIGN,
   EQ,
   NEQ,
@@ -68,6 +70,8 @@ static const int PRECEDENCE[] = {
   -1, // IDENTIFIER
   -1, // LEFTVALUE_IDENTIFIER
   -1, // FUNCTION
+  -1, // FUNCTION_CALL
+  -1, // RETURN
   -1, // ASSIGN
   0, // EQ
   0, // NEQ
@@ -111,6 +115,8 @@ static const char* TOKENTYPE_STRING[] = {
   "identifier", // IDENTIFIER
   "leftvalue identifier", // LEFTVALUE_IDENTIFIER
   "function", // FUNCTION
+  "function call", // FUNCTION_CALL
+  "return", // RETURN
   "assign", // ASSIGN
   "==", // EQ
   "!=", // NEQ
@@ -172,6 +178,12 @@ static const char* NUMBERTYPE_LLVM[] = {
 };
 
 #pragma once
+typedef enum {
+  FUNCTION_TYPE = 0,
+  NUMBER_TYPE,
+} TypeType;
+
+#pragma once
 typedef struct Function {
   TokenType returnType;
 } Function;
@@ -183,9 +195,15 @@ typedef struct Number {
 } Number;
 
 #pragma once
-typedef union Type {
+typedef union TypeValue {
   Number number;
   Function function;
+} TypeValue;
+
+#pragma once
+typedef struct Type {
+  TypeType type;
+  TypeValue value;
 } Type;
 
 #pragma once

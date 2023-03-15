@@ -13,6 +13,7 @@
 FILE* GLOBAL_FILE_POINTER;
 Token GLOBAL_TOKEN;
 
+char CUR_FUNCTION_NAME[MAX_IDENTIFIER_LENGTH + 1];
 int CUR_LINENUM = 1;
 
 // Get next valid character from file
@@ -211,7 +212,7 @@ void scan() {
     case '8':
     case '9':
       token.type = NUMBER_LITERAL;
-      token.val = (TokenVal) { .num = scanIntegerLiteral(c, &token.valueType.number.numType) };
+      token.val = (TokenVal) { .num = scanIntegerLiteral(c, &token.valueType.value.number.numType) };
       break;
     case ';':
       token.type = SEMICOLON;
@@ -300,19 +301,21 @@ void scan() {
           token.type = BREAK;
         } else if (strcmp(identifierBuffer, "continue") == 0) {
           token.type = CONTINUE;
+        } else if (strcmp(identifierBuffer, "return") == 0) {
+          token.type = RETURN;
         } else {
           token.type = IDENTIFIER;
           switch (GLOBAL_TOKEN.type) {
             case VOID:
-              token.valueType = (Type) { .function = (Function) {VOID} };
+              token.valueType = (Type) { FUNCTION_TYPE, (TypeValue) { .function = (Function) {VOID} } };
               break;
             case CHAR:
               {
-                token.valueType = (Type) { .number = (Number) {NUM_CHAR} };
+                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_CHAR} } };
 
                 SymbolTableEntry entry;
                 strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { .number = (Number) {NUM_CHAR, -1}};
+                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_CHAR, -1}} };
                 entry.next = NULL;
 
                 updateSymbolTable(entry);
@@ -320,11 +323,11 @@ void scan() {
               break;
             case SHORT:
               {
-                token.valueType = (Type) { .number = (Number) {NUM_SHORT} };
+                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_SHORT}} };
 
                 SymbolTableEntry entry;
                 strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { .number = (Number) {NUM_SHORT, -1}};
+                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_SHORT, -1}} };
                 entry.next = NULL;
 
                 updateSymbolTable(entry);
@@ -332,11 +335,11 @@ void scan() {
               break;
             case INT:
               {
-                token.valueType = (Type) { .number = (Number) {NUM_INT} };
+                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_INT}} };
 
                 SymbolTableEntry entry;
                 strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { .number = (Number) {NUM_INT, -1}};
+                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_INT, -1}} };
                 entry.next = NULL;
 
                 updateSymbolTable(entry);
@@ -344,11 +347,11 @@ void scan() {
               break;
             case LONG:
               {
-                token.valueType = (Type) { .number = (Number) {NUM_LONG} };
+                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_LONG}} };
 
                 SymbolTableEntry entry;
                 strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { .number = (Number) {NUM_LONG, -1}};
+                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_LONG, -1}} };
                 entry.next = NULL;
 
                 updateSymbolTable(entry);
@@ -359,7 +362,7 @@ void scan() {
                 SymbolTableEntry* entry = getSymbolTableEntry(identifierBuffer);
                 if (entry == NULL)
                   fatal(RC_ERROR, "Invalid variable declaration for %s\n", identifierBuffer);
-                token.valueType = (Type) { .number = (Number) {entry->type.number.numType} };
+                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {entry->type.value.number.numType}} };
               }
               break;
           }

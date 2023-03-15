@@ -52,8 +52,10 @@ void updateSymbolTable(SymbolTableEntry entry) {
     SymbolTableEntry* cur = data[hashResult];
 
     while (cur != NULL) {
-      if (strcmp(cur->identifierName, identifier) == 0)
+      if (strcmp(cur->identifierName, identifier) == 0) {
+        cur->type = newEntry->type;
         return;
+      }
 
       if (cur->next != NULL)
         cur = cur->next;

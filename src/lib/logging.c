@@ -6,6 +6,7 @@
  */
 
 #include "../../include/lib/logging.h"
+#include "../../include/token.h"
 
 /**
  * @brief Raises a fatal error that will exit the program
@@ -16,13 +17,14 @@
  */
 
 extern int CUR_LINENUM;
+extern char CUR_FUNCTION_NAME[MAX_IDENTIFIER_LENGTH + 1];
 
 void fatal(ReturnCode rc, const char* fmt, ...)
 {
     va_list func_args;
 
     va_start(func_args, fmt);
-    fprintf(stderr, "%s%s (Line number %d)%s", ERROR_RED "[", returnCodeStrings[rc], CUR_LINENUM, "] - " ANSI_RESET);
+    fprintf(stderr, "%s%s (function %s) (Line number %d)%s", ERROR_RED "[", returnCodeStrings[rc], CUR_FUNCTION_NAME, CUR_LINENUM, "] - " ANSI_RESET);
     vfprintf(stderr, fmt, func_args);
     va_end(func_args);
 

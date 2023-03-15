@@ -104,6 +104,40 @@ LLVMValue getNextLabel() {
   return (LLVMValue) {LABEL, ++LLVM_LABEL_INDEX};
 }
 
+char* tokenTypeToLLVM(TokenType tokenType) {
+  switch (tokenType) {
+    case VOID:
+      return "void";
+    case CHAR:
+      return "i8";
+    case SHORT:
+      return "i16";
+    case INT:
+      return "i32";
+    case LONG:
+      return "i64";
+    default: 
+      fatal(RC_ERROR, "Token type %s has no LLVM representation\n", TOKENTYPE_STRING[tokenType]);
+      return "";
+  }
+}
+
+NumberType tokenTypeToNumberType(TokenType tokenType) {
+  switch (tokenType) {
+    case CHAR:
+      return NUM_CHAR;
+    case SHORT:
+      return NUM_SHORT;
+    case INT:
+      return NUM_INT;
+    case LONG:
+      return NUM_LONG;
+    default:
+      fatal(RC_ERROR, "Token type %s has no associated number type\n", TOKENTYPE_STRING[tokenType]);
+      return NUM_LONG;
+  }
+}
+
 LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
   if (root == NULL)
     return NULL;
@@ -164,13 +198,13 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
 
     NumberType numType;
     if (root->token.type == NUMBER_LITERAL) {
-      numType = root->token.valueType.number.numType;
+      numType = root->token.valueType.value.number.numType;
     } else if (root->token.type == IDENTIFIER) {
       SymbolTableEntry* entry = getSymbolTableEntry(root->token.val.string);
       if (entry == NULL)
         fatal(RC_ERROR, "Undeclared variable %s while generating stack entries\n", root->token.val.string);
 
-      numType = entry->type.number.numType;
+      numType = entry->type.value.number.numType;
     } else {
       return NULL;
     }
@@ -220,8 +254,7 @@ void generateFunctionPreamble(char* name) {
   if (entry == NULL)
     fatal(RC_ERROR, "Generating undeclared function preamble\n");
   
-  // TODO don't hardcode void llvm representation
-  fprintf(LLVM_OUTPUT, "define dso_local %s @%s() #0 {\n", "void", name);
+  fprintf(LLVM_OUTPUT, "define dso_local %s @%s() #0 {\n", tokenTypeToLLVM(entry->type.value.function.returnType), name);
 }
 
 void generateFunctionPostamble(char* name) {
@@ -229,8 +262,15 @@ void generateFunctionPostamble(char* name) {
   if (entry == NULL)
     fatal(RC_ERROR, "ried to close undeclared function %s\n", name);
 
-  // TODO don't hardcode void llvm representation
-  fprintf(LLVM_OUTPUT, "\tret void\n}\n\n");
+  fprintf(LLVM_OUTPUT, "\tret ");
+
+  if (entry->type.value.function.returnType == VOID) {
+    fprintf(LLVM_OUTPUT, "void\n");
+  } else {
+    fprintf(LLVM_OUTPUT, "%s 0\n", tokenTypeToLLVM(entry->type.value.function.returnType));
+  }
+
+  fprintf(LLVM_OUTPUT, "}\n\n");
 }
 
 LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
@@ -414,8 +454,8 @@ LLVMValue generateLoadGlobal(char* string) {
     fatal(RC_ERROR, "Undeclared variable %s encountered while loading global\n", string);
 
   int outVR = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->type.number.numType], NUMBERTYPE_LLVM[globalEntry->type.number.numType], string);
-  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->type.number.numType};
+  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s* @%s\n", outVR, NUMBERTYPE_LLVM[globalEntry->type.value.number.numType], NUMBERTYPE_LLVM[globalEntry->type.value.number.numType], string);
+  LLVMValue result = (LLVMValue) {VIRTUAL_REGISTER, outVR, globalEntry->type.value.number.numType};
   pushLoadedRegister(result);
   return result;
 }
@@ -426,9 +466,9 @@ void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
     fatal(RC_ERROR, "Undeclared variable %s encountered while storing global\n", string);
 
   LLVMValue outVR = generateEnsureRegisterLoaded((LLVMValue) {VIRTUAL_REGISTER, rvalueVR.val, rvalueVR.numType});
-  if (outVR.numType != globalEntry->type.number.numType)
-    outVR = generateIntResize(outVR, globalEntry->type.number.numType);
-  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->type.number.numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->type.number.numType], string);
+  if (outVR.numType != globalEntry->type.value.number.numType)
+    outVR = generateIntResize(outVR, globalEntry->type.value.number.numType);
+  fprintf(LLVM_OUTPUT, "\tstore %s %%%d, %s* @%s\n", NUMBERTYPE_LLVM[globalEntry->type.value.number.numType], outVR.val, NUMBERTYPE_LLVM[globalEntry->type.value.number.numType], string);
 }
 
 void generateLabel(LLVMValue label) {
@@ -459,6 +499,44 @@ LLVMValue generateCompareJump(Token comparison, LLVMValue leftVR, LLVMValue righ
   generateConditionalJump(comparisonResult, trueLabel, falseLabel);
   generateLabel(trueLabel);
   return comparisonResult;
+}
+
+void generateReturn(LLVMValue returnValue, char* functionName) {
+  SymbolTableEntry* entry = getSymbolTableEntry(functionName);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Tried to return for undeclared function %s\n", functionName);
+
+  LLVM_VIRTUAL_REGISTER_NUMBER++;
+  if (entry->type.value.function.returnType == VOID) {
+    fprintf(LLVM_OUTPUT, "\tret void\n");
+  } else {
+    returnValue = generateEnsureRegisterLoaded(returnValue);
+    fprintf(LLVM_OUTPUT, "\tret %s %%%d\n", NUMBERTYPE_LLVM[returnValue.numType], returnValue.val); 
+  }
+}
+
+LLVMValue generateFunctionCall(char* name, LLVMValue arg) {
+  LLVMValue result = (LLVMValue) {NONE};
+
+  SymbolTableEntry* entry = getSymbolTableEntry(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Generating call for undeclared function %s\n", name);
+  if (entry->type.type != FUNCTION_TYPE)
+    fatal(RC_ERROR, "Calling a non-function identifier %s as a function\n", name);
+
+  fprintf(LLVM_OUTPUT, "\t");
+
+  if (entry->type.value.function.returnType != VOID) {
+    result = (LLVMValue) {VIRTUAL_REGISTER, getNextVirtualRegisterNumber(), tokenTypeToNumberType(entry->type.value.function.returnType)};
+
+    fprintf(LLVM_OUTPUT, "%%%d = ", result.val);
+
+    pushLoadedRegister(result);
+  }
+
+  fprintf(LLVM_OUTPUT, "call %s () @%s()\n", tokenTypeToLLVM(entry->type.value.function.returnType), name);
+
+  return result;
 }
 
 void generatePrintInt(LLVMValue vr) {
@@ -519,7 +597,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR, TokenType parentOpe
         return generateComparison(root->token, leftVR, rightVR);
       }
     case NUMBER_LITERAL:
-      return generateStoreConstant(root->token.val.num, root->token.valueType.number.numType);
+      return generateStoreConstant(root->token.val.num, root->token.valueType.value.number.numType);
     case PRINT:
       leftVR = generateEnsureRegisterLoaded(leftVR);
       generatePrintInt(leftVR);
@@ -550,6 +628,11 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue rvalueVR, TokenType parentOpe
       LLVM_VIRTUAL_REGISTER_NUMBER++; // TODO WHY??
       generateJump(CONTINUE_LABELS->val);
       return (LLVMValue) {NONE, 0};
+    case RETURN:
+      generateReturn(leftVR, root->token.val.string);
+      return (LLVMValue) {NONE, 0};
+    case FUNCTION_CALL:
+      return generateFunctionCall(root->token.val.string, leftVR);
     default:
       fatal(RC_ERROR, "Encountered bad operand while evaluating expression: %s", TOKENTYPE_STRING[root->token.type]);
       return leftVR; 
