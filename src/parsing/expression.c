@@ -5,8 +5,6 @@
 extern FILE* GLOBAL_FILE_POINTER;
 extern Token GLOBAL_TOKEN;
 
-NumberType* curNumType;
-
 ASTNode* parseFunctionCall() {
   Token identifier = matchToken(IDENTIFIER);
   char* name = identifier.val.string;
@@ -21,7 +19,7 @@ ASTNode* parseFunctionCall() {
   matchToken(RIGHT_PAREN);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {FUNCTION_CALL, (TokenVal) {}};
+  result->token = (Token) {FUNCTION_CALL, (TokenVal) {}, (Type) {FUNCTION_TYPE, (TypeValue) { .function = (Function) {entry->type.value.function.returnType}}}};
   strcpy(result->token.val.string, name);
   result->left = singleArgument;
   result->center = NULL;
@@ -36,12 +34,6 @@ ASTNode* parseTerminalNode() {
   if (GLOBAL_TOKEN.type == END) {
     fatal(RC_ERROR, "Expected semicolon but encountered end of file");
   } else if (GLOBAL_TOKEN.type == NUMBER_LITERAL) {
-    if (curNumType == NULL)
-      curNumType = &GLOBAL_TOKEN.valueType.value.number.numType;
-
-    if (GLOBAL_TOKEN.valueType.value.number.numType != *curNumType)
-      fatal(RC_ERROR, "Number %ld is of type %s but expected %s\n", GLOBAL_TOKEN.val.num, NUMBERTYPE_STRING[GLOBAL_TOKEN.valueType.value.number.numType], NUMBERTYPE_STRING[*curNumType]);
-
     result->token = GLOBAL_TOKEN;
     result->left = NULL;
     result->center = NULL;
@@ -50,14 +42,11 @@ ASTNode* parseTerminalNode() {
     SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
     if (entry == NULL)
       fatal(RC_ERROR, "Undeclared variable %s", GLOBAL_TOKEN.val.string);
-   if (entry->type.type == FUNCTION_TYPE)
+    if (entry->type.type == FUNCTION_TYPE)
       return parseFunctionCall();
-   if (curNumType == NULL)
-      curNumType = &entry->type.value.number.numType;
-   if (entry->type.value.number.numType != *curNumType)
-      fatal(RC_ERROR, "Variable %s is of type %s but expected %s\n", entry->identifierName, NUMBERTYPE_STRING[entry->type.value.number.numType], NUMBERTYPE_STRING[*curNumType]); 
 
     result->token = GLOBAL_TOKEN;
+    result->token.valueType.type = NUMBER_TYPE;
     result->token.valueType.value.number.numType = entry->type.value.number.numType;
     result->left = NULL;
     result->center = NULL;
@@ -128,8 +117,31 @@ ASTNode* prattParse(int prevPrecedence) {
     ASTNode* right = prattParse(PRECEDENCE[tokenType]);
 
     // Join right subtree with current left subtree
+    NumberType resultNumType;
+    if (left->token.valueType.type == FUNCTION_TYPE) {
+      switch (left->token.valueType.value.function.returnType) {
+        case CHAR:
+          resultNumType = NUM_CHAR;
+          break;
+        case SHORT:
+          resultNumType = NUM_SHORT;
+          break;
+        case INT:
+          resultNumType = NUM_INT;
+          break;
+        case LONG:
+          resultNumType = NUM_LONG;
+          break;
+        default:
+          fatal(RC_ERROR, "Invalid function (%s) tokenType result %s in binary expression\n", left->token.val.string, TOKENTYPE_STRING[left->token.valueType.value.function.returnType]);
+          break;
+      }
+    } else {
+      resultNumType = left->token.valueType.value.number.numType;
+    }
+
     ASTNode* newLeft = malloc(sizeof(ASTNode));
-    newLeft->token = (Token) {tokenType, (TokenVal) {0}, (Type) {NUMBER_TYPE, (TypeValue) { .number = (Number) {left->token.valueType.value.number.numType}}}};
+    newLeft->token = (Token) {tokenType, (TokenVal) {0}, (Type) {NUMBER_TYPE, (TypeValue) { .number = (Number) {resultNumType}}}};
     newLeft->left = left;
     newLeft->right = right;
     left = newLeft;
@@ -144,6 +156,5 @@ ASTNode* prattParse(int prevPrecedence) {
 }
 
 ASTNode* parseBinaryExpression() {
-  curNumType = NULL;
   return prattParse(-1);
 }

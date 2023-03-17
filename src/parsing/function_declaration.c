@@ -30,6 +30,7 @@ ASTNode* parseFunctionDeclaration() {
   ASTNode* result = malloc(sizeof(ASTNode));
   Token resultToken;
   resultToken.type = FUNCTION;
+  resultToken.valueType = entry.type; 
   strcpy(resultToken.val.string, identifier.val.string);
   result->token = resultToken;
   result->left = parseBlock();
