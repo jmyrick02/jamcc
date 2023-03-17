@@ -201,6 +201,9 @@ void scan() {
     case '!':
       token.type = NEQ;
       break;
+    case '&':
+      token.type = AMPERSAND;
+      break;
     case '0':
     case '1':
     case '2':
@@ -212,6 +215,7 @@ void scan() {
     case '8':
     case '9':
       token.type = NUMBER_LITERAL;
+      token.valueType = (Type) {NUMBER_TYPE, (TypeValue) {(Number) {NUM_INT, -1, 0}}};
       token.val = (TokenVal) { .num = scanIntegerLiteral(c, &token.valueType.value.number.numType) };
       break;
     case ';':
@@ -305,67 +309,6 @@ void scan() {
           token.type = RETURN;
         } else {
           token.type = IDENTIFIER;
-          switch (GLOBAL_TOKEN.type) {
-            case VOID:
-              token.valueType = (Type) { FUNCTION_TYPE, (TypeValue) { .function = (Function) {VOID} } };
-              break;
-            case CHAR:
-              {
-                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_CHAR} } };
-
-                SymbolTableEntry entry;
-                strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_CHAR, -1}} };
-                entry.next = NULL;
-
-                updateSymbolTable(entry);
-              }
-              break;
-            case SHORT:
-              {
-                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_SHORT}} };
-
-                SymbolTableEntry entry;
-                strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_SHORT, -1}} };
-                entry.next = NULL;
-
-                updateSymbolTable(entry);
-              }
-              break;
-            case INT:
-              {
-                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_INT}} };
-
-                SymbolTableEntry entry;
-                strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_INT, -1}} };
-                entry.next = NULL;
-
-                updateSymbolTable(entry);
-              }
-              break;
-            case LONG:
-              {
-                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_LONG}} };
-
-                SymbolTableEntry entry;
-                strcpy(entry.identifierName, identifierBuffer);
-                entry.type = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {NUM_LONG, -1}} };
-                entry.next = NULL;
-
-                updateSymbolTable(entry);
-              }
-              break;
-            default: // Check symbol table
-              {
-                SymbolTableEntry* entry = getSymbolTableEntry(identifierBuffer);
-                if (entry == NULL)
-                  fatal(RC_ERROR, "Invalid variable declaration for %s\n", identifierBuffer);
-                token.valueType = (Type) { NUMBER_TYPE, (TypeValue) { .number = (Number) {entry->type.value.number.numType}} };
-              }
-              break;
-          }
           TokenVal val;
           strcpy(val.string, identifierBuffer);
           token.val = val;

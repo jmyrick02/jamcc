@@ -12,6 +12,7 @@ typedef struct LLVMValue {
   LLVMValueType type;
   int val;
   NumberType numType;
+  int pointerDepth;
 } LLVMValue;
 
 #pragma once

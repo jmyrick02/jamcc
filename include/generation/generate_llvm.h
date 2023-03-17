@@ -7,7 +7,7 @@
 
 LLVMValue getNextLabel();
 
-void generateDeclareGlobal(char* name, int value, NumberType numType);
+void generateDeclareGlobal(char* name, int value, Number num);
 
 LLVMValue generateIf(ASTNode* root);
 

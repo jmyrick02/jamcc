@@ -41,6 +41,8 @@ typedef enum {
   BREAK,
   CONTINUE,
   LABEL_TOKEN,
+  AMPERSAND,
+  DEREFERENCE,
   AST_GLUE,
   END,
 } TokenType;
@@ -86,6 +88,8 @@ static const int PRECEDENCE[] = {
   -1, // BREAK
   -1, // CONTINUE
   -1, // LABEL_TOKEN
+  -1, // AMPERSAND
+  -1, // DEREFERENCE
   -1, // AST_GLUE
   -1, // END 
 };
@@ -131,6 +135,8 @@ static const char* TOKENTYPE_STRING[] = {
   "break", // BREAK
   "continue", // CONTINUE
   "label", // LABEL_TOKEN
+  "ampersand", // AMPERSAND
+  "*", // DEREFERENCE
   "ast glue", // AST_GLUE
   "EOF", // END
 };
@@ -192,6 +198,7 @@ typedef struct Function {
 typedef struct Number {
   NumberType numType;
   int registerNum;
+  int pointerDepth;
 } Number;
 
 #pragma once

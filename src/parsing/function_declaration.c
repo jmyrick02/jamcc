@@ -22,8 +22,6 @@ ASTNode* parseFunctionDeclaration() {
 
   updateSymbolTable(entry); 
 
-  SymbolTableEntry* temp = getSymbolTableEntry(identifier.val.string);
-
   matchToken(LEFT_PAREN);
   matchToken(RIGHT_PAREN);
 

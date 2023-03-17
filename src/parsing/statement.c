@@ -13,17 +13,48 @@ Token matchToken(TokenType type) {
   return cur;
 }
 
+Number matchNumType() {
+  Token token = GLOBAL_TOKEN;
+  scan();
+
+  NumberType numType;
+  switch (token.type) {
+    case CHAR:
+      numType = NUM_CHAR;
+      break;
+    case SHORT:
+      numType = NUM_SHORT;
+      break;
+    case INT:
+      numType = NUM_INT;
+      break;
+    case LONG:
+      numType = NUM_LONG;
+      break;
+    default:
+      fatal(RC_ERROR, "Expected num type but received %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
+  }
+
+  int pointerDepth = 0;
+  while (GLOBAL_TOKEN.type == STAR) {
+    matchToken(STAR);
+    pointerDepth++;
+  }
+
+  return (Number) {numType, -1, pointerDepth};
+}
+
 ASTNode* parsePrintStatement() {
   matchToken(PRINT);
 
   ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {PRINT};
-  result->left = parseBinaryExpression(NUM_INT);
+  result->left = parseBinaryExpression();
   result->right = NULL;
 
   if (result->left->token.valueType.type == NUMBER_TYPE && result->left->token.valueType.value.number.numType != NUM_INT)
     fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.valueType.value.number.numType]);
-
+    
   return result;
 }
 
@@ -62,39 +93,17 @@ ASTNode* parseFactorialStatement() {
 }
 
 void parseDeclarationStatement() {
-  Token cur = GLOBAL_TOKEN;
-  if (cur.type != SHORT && cur.type != INT && cur.type != LONG && cur.type != CHAR)
-    fatal(RC_ERROR, "Expected valid type declaration but received %s\n", TOKENTYPE_STRING[cur.type]);
-  scan();
+  Number num = matchNumType();
 
   Token identifier = matchToken(IDENTIFIER);
 
-  NumberType type;
-  switch (cur.type) {
-    case CHAR:
-      type = NUM_CHAR;
-      break;
-    case SHORT:
-      type = NUM_SHORT;
-      break;
-    case INT:
-      type = NUM_INT;
-      break;
-    case LONG:
-      type = NUM_LONG;
-      break;
-    default:
-      fatal(RC_ERROR, "Invalid variable type %s\n", TOKENTYPE_STRING[cur.type]);
-      break;
-  }
-
   SymbolTableEntry entry;
   strcpy(entry.identifierName, identifier.val.string);
-  entry.type = (Type) { NUMBER_TYPE, (TypeValue) {(Number) {type, -1}} };
+  entry.type = (Type) { NUMBER_TYPE, (TypeValue) { (Number) {num.numType, num.registerNum, num.pointerDepth + 1} } };
   entry.next = NULL;
 
   updateSymbolTable(entry);
-  generateDeclareGlobal(identifier.val.string, 0, type);
+  generateDeclareGlobal(identifier.val.string, 0, entry.type.value.number);
 }
 
 ASTNode* parseAssignmentStatement() {
@@ -108,9 +117,9 @@ ASTNode* parseAssignmentStatement() {
 
   ASTNode* result = malloc(sizeof(ASTNode));
   result->token = (Token) {ASSIGN};
-  result->left = parseBinaryExpression(GLOBAL_TOKEN.valueType.value.number.numType);
+  result->left = parseBinaryExpression();
   result->right = malloc(sizeof(ASTNode));
-  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {entry->type.value.number.numType}}}};
+  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {entry->type.value.number.numType, -1, entry->type.value.number.pointerDepth}}}};
   strcpy(result->right->token.val.string, identifier.val.string);
 
   return result;
@@ -120,7 +129,7 @@ ASTNode* parseIf() {
   matchToken(IF);
   matchToken(LEFT_PAREN);
 
-  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.valueType.value.number.numType);
+  ASTNode* condition = parseBinaryExpression();
   if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
     fatal(RC_ERROR, "If statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
   
@@ -145,7 +154,7 @@ ASTNode* parseWhile() {
   matchToken(WHILE);
   matchToken(LEFT_PAREN);
 
-  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.valueType.value.number.numType);
+  ASTNode* condition = parseBinaryExpression();
   if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
     fatal(RC_ERROR, "While statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
   
@@ -168,7 +177,7 @@ ASTNode* parseFor() {
   ASTNode* preamble = parseAssignmentStatement();
   matchToken(SEMICOLON);
 
-  ASTNode* condition = parseBinaryExpression(GLOBAL_TOKEN.valueType.value.number.numType);
+  ASTNode* condition = parseBinaryExpression();
   if (condition->token.type != EQ && condition->token.type != NEQ && condition->token.type != LT && condition->token.type != LEQ && condition->token.type != GT && condition->token.type != GEQ)
     fatal(RC_ERROR, "For statements currently require a conditional operand, not %s\n", TOKENTYPE_STRING[condition->token.type]); 
   matchToken(SEMICOLON);
@@ -249,7 +258,7 @@ ASTNode* parseReturn() {
   result->right = NULL;
 
   if (entry->type.value.function.returnType != VOID)
-    result->left = parseBinaryExpression(GLOBAL_TOKEN.valueType.value.number.numType);
+    result->left = parseBinaryExpression();
   
   return result;
 }

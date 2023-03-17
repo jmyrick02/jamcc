@@ -6,4 +6,4 @@
 
 ASTNode* parseFunctionCall();
 
-ASTNode* parseBinaryExpression(NumberType numType);
+ASTNode* parseBinaryExpression();
