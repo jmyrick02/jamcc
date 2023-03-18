@@ -4,13 +4,14 @@
 typedef enum {
   VIRTUAL_REGISTER = 0,
   LABEL,
+  CONSTANT,
   NONE,
 } LLVMValueType;
 
 #pragma once
 typedef struct LLVMValue {
   LLVMValueType type;
-  int val;
+  long val;
   NumberType numType;
   int pointerDepth;
 } LLVMValue;

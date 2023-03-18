@@ -5,6 +5,7 @@
 #include "../include/generation/symboltable.h"
 
 char* ARG_FILEPATH;
+int ARG_OPTIMIZATION;
 
 extern FILE* GLOBAL_FILE_POINTER;
 extern FILE* LLVM_OUTPUT;
@@ -13,9 +14,13 @@ extern FILE* LLVM_GLOBALS_OUTPUT;
 
 int main(int argc, char *argv[]) {
   if (argc < 2)
-    fatal(RC_ERROR, "You didn't pass in an input file path");
+    fatal(RC_ERROR, "You didn't pass in an input file path and an integer optimization level");
 
   ARG_FILEPATH = argv[1];
+  if (argc >= 3)
+    ARG_OPTIMIZATION = atoi(argv[2]);
+  else
+    ARG_OPTIMIZATION = 0;
 
   GLOBAL_FILE_POINTER = fopen(ARG_FILEPATH, "r");
   if (GLOBAL_FILE_POINTER == NULL) 

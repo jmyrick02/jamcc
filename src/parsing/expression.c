@@ -1,6 +1,6 @@
 #include "../../include/parsing/expression.h"
 #include "../../include/lib/logging.h"
-#include "../../include/parsing/statement.h"
+#include "../../include/parsing/optimization.h"
 
 extern FILE* GLOBAL_FILE_POINTER;
 extern Token GLOBAL_TOKEN;
@@ -156,5 +156,5 @@ ASTNode* prattParse(int prevPrecedence) {
 }
 
 ASTNode* parseBinaryExpression() {
-  return prattParse(-1);
+  return optimize(prattParse(-1));
 }

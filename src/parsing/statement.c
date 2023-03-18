@@ -52,7 +52,7 @@ ASTNode* parsePrintStatement() {
   result->left = parseBinaryExpression();
   result->right = NULL;
 
-  if (result->left->token.valueType.value.number.numType != NUM_INT)
+  if (result->left->token.valueType.value.number.numType != NUM_INT && result->left->token.valueType.value.function.returnType != INT)
     fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.valueType.value.number.numType]);
     
   return result;
