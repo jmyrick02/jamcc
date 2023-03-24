@@ -14,7 +14,11 @@ typedef struct ASTNode {
   struct ASTNode* left;
   struct ASTNode* center;
   struct ASTNode* right;
+  int isRVal;
 } ASTNode;
 
 void scan();
 
+// Constructors:
+
+#define CONSTRUCTOR_ASTNODE(token, left, center, right) (ASTNode) {token, left, center, right, 0}

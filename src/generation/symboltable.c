@@ -22,20 +22,6 @@ void initSymbolTable(int len) {
   length = len;
 }
 
-// Recommended: 2
-// TODO - incorrect and never used
-void resizeSymbolTable(int factor) {
-  SymbolTableEntry **newData = malloc(length * factor * sizeof(SymbolTableEntry*));
-
-  for (int i = 0; i < length; i++) {
-    newData[i] = data[i];
-  }
-  free(data);
-
-  data = newData;
-  length *= factor;
-}
-
 void updateSymbolTable(SymbolTableEntry entry) {
   SymbolTableEntry* newEntry = malloc(sizeof(SymbolTableEntry));
   strcpy(newEntry->identifierName, entry.identifierName);

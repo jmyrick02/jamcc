@@ -48,9 +48,7 @@ ASTNode* parsePrintStatement() {
   matchToken(PRINT);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {PRINT};
-  result->left = parseBinaryExpression();
-  result->right = NULL;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(PRINT), parseBinaryExpression(), NULL, NULL);
 
   if (result->left->token.valueType.value.number.numType != NUM_INT && result->left->token.valueType.value.function.returnType != INT)
     fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.valueType.value.number.numType]);
@@ -64,30 +62,24 @@ ASTNode* parseFactorialStatement() {
   if (literal.valueType.value.number.numType != NUM_INT)
     fatal(RC_ERROR, "Must pass in integer literal to factorial statements\n");
 
-  ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {PRINT, 0};
-
   ASTNode* cur = malloc(sizeof(ASTNode));
-  result->left = cur;
-  result->right = NULL;
-  cur->token = (Token) {STAR, 0};
+  *cur = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(STAR), NULL, NULL, NULL);
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(PRINT), cur, NULL, NULL);
 
   int num = literal.val.num;
   while (num > 1) {
     cur->left = malloc(sizeof(ASTNode));
-    cur->left->token = (Token) {NUMBER_LITERAL, (TokenVal) {num}, (Type) { NUMBER_TYPE, (TypeValue) {(Number) {NUM_INT}}}};
-    cur->left->left = NULL;
-    cur->left->right = NULL;
+    *cur->left = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_CONSTANT(num, NUM_INT), NULL, NULL, NULL);
 
     cur->right = malloc(sizeof(ASTNode));
-    cur->right->token = (Token) {STAR, 0};
-    cur->right->left = NULL;
-    cur->right->right = NULL;
+    *cur->right = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(STAR), NULL, NULL, NULL);
 
     cur = cur->right;
     num--;
   }
-  cur->token = (Token) {NUMBER_LITERAL, (TokenVal) { .num = 1 }, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {NUM_INT}}}};
+  cur->token = CONSTRUCTOR_TOKEN_CONSTANT(1, NUM_INT);
 
   return result;
 }
@@ -99,7 +91,7 @@ void parseDeclarationStatement() {
 
   SymbolTableEntry entry;
   strcpy(entry.identifierName, identifier.val.string);
-  entry.type = (Type) { NUMBER_TYPE, (TypeValue) { (Number) {num.numType, num.registerNum, num.pointerDepth + 1} } };
+  entry.type = CONSTRUCTOR_NUMBER_TYPE_FULL(num.numType, num.registerNum, num.pointerDepth + 1);
   entry.next = NULL;
 
   updateSymbolTable(entry);
@@ -116,10 +108,8 @@ ASTNode* parseAssignmentStatement() {
   matchToken(ASSIGN);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {ASSIGN};
-  result->left = parseBinaryExpression();
-  result->right = malloc(sizeof(ASTNode));
-  result->right->token = (Token) {LEFTVALUE_IDENTIFIER, (TokenVal) {}, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {entry->type.value.number.numType, -1, entry->type.value.number.pointerDepth}}}};
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(ASSIGN), parseBinaryExpression(), NULL, malloc(sizeof(ASTNode)));
+  *result->right = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_NUMBER_IDENTIFIER(entry->type.value.number.numType, entry->type.value.number.pointerDepth), NULL, NULL, NULL);
   strcpy(result->right->token.val.string, identifier.val.string);
 
   return result;
@@ -143,10 +133,7 @@ ASTNode* parseIf() {
   }
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {IF};
-  result->left = condition;
-  result->center = block;
-  result->right = negativeBlock;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(IF), condition, block, negativeBlock);
   return result;
 }
 
@@ -163,10 +150,7 @@ ASTNode* parseWhile() {
   ASTNode* block = parseBlock();
   
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {WHILE};
-  result->left = condition;
-  result->center = NULL;
-  result->right = block;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, NULL, block);
   return result;
 }
 
@@ -183,39 +167,23 @@ ASTNode* parseFor() {
   matchToken(SEMICOLON);
 
   ASTNode* postamble = malloc(sizeof(ASTNode));
-  postamble->token = (Token) {AST_GLUE};
+  *postamble = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), malloc(sizeof(ASTNode)), NULL, parseAssignmentStatement());
   
   // Add label to for postamble
-  postamble->left = malloc(sizeof(ASTNode));
-  int labelNum = getNextLabel().val;
-  postamble->left->token = (Token) {LABEL_TOKEN, labelNum};
-  postamble->left->left = NULL;
-  postamble->left->center = NULL;
-  postamble->left->right = NULL;
+  *postamble->left = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_LABEL(getNextLabel().val), NULL, NULL, NULL);
   
-  postamble->center = NULL;
-  postamble->right = parseAssignmentStatement();
   matchToken(RIGHT_PAREN);
 
   ASTNode* block = parseBlock();
 
   ASTNode* glue = malloc(sizeof(ASTNode));
-  glue->token = (Token) {AST_GLUE};
-  glue->left = block;
-  glue->center = NULL;
-  glue->right = postamble;
+  *glue = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), block, NULL, postamble);
 
   ASTNode* whileNode = malloc(sizeof(ASTNode));
-  whileNode->token = (Token) {WHILE};
-  whileNode->left = condition;
-  whileNode->center = NULL;
-  whileNode->right = glue;
+  *whileNode = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, NULL, glue);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {AST_GLUE};
-  result->left = preamble;
-  result->center = NULL;
-  result->right = whileNode;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), preamble, NULL, whileNode);
 
   return result;
 }
@@ -224,10 +192,7 @@ ASTNode* parseBreak() {
   matchToken(BREAK);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {BREAK};
-  result->left = NULL;
-  result->center = NULL;
-  result->right = NULL;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(BREAK), NULL, NULL, NULL);
 
   return result;
 }
@@ -236,10 +201,7 @@ ASTNode* parseContinue() {
   matchToken(CONTINUE);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {CONTINUE};
-  result->left = NULL;
-  result->center = NULL;
-  result->right = NULL;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(CONTINUE), NULL, NULL, NULL);
 
   return result;
 }
@@ -251,11 +213,9 @@ ASTNode* parseReturn() {
   if (entry == NULL)
     fatal(RC_ERROR, "Current function does not exist!");
 
-  ASTNode* result = malloc(sizeof(ASTNode)); result->token = (Token) {RETURN, (TokenVal) {}};
+  ASTNode* result = malloc(sizeof(ASTNode)); 
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_RETURN, NULL, NULL, NULL);
   strcpy(result->token.val.string, CUR_FUNCTION_NAME);
-  result->left = NULL;
-  result->center = NULL;
-  result->right = NULL;
 
   if (entry->type.value.function.returnType != VOID)
     result->left = parseBinaryExpression();
@@ -265,10 +225,7 @@ ASTNode* parseReturn() {
 
 ASTNode* parseBlock() {
   ASTNode* root = malloc(sizeof(ASTNode));
-  root->token = (Token) {UNKNOWN_TOKEN};
-  root->left = NULL;
-  root->center = NULL;
-  root->right = NULL;
+  *root = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(UNKNOWN_TOKEN), NULL, NULL, NULL);
   
   ASTNode* left = NULL;
 
@@ -291,22 +248,7 @@ ASTNode* parseBlock() {
       case CHAR:
         parseDeclarationStatement();
         root = malloc(sizeof(ASTNode));
-        root->token.type = UNKNOWN_TOKEN;
-        root->left = NULL;
-        root->center = NULL;
-        root->right = NULL;
-        break;
-      case IDENTIFIER:
-        {
-          SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
-          if (entry == NULL)
-            fatal(RC_ERROR, "Identifier %s undeclared\n", GLOBAL_TOKEN.val.string);
-          if (entry->type.type == FUNCTION_TYPE) {
-            root = parseFunctionCall();
-          } else {
-            root = parseAssignmentStatement();
-          }
-        }
+        *root = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(UNKNOWN_TOKEN), NULL, NULL, NULL);
         break;
       case IF:
         root = parseIf();
@@ -335,7 +277,7 @@ ASTNode* parseBlock() {
         root = parseReturn();
         break;
       default:
-        fatal(RC_ERROR, "Expected valid statement in block, but got %s\n", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
+        root = parseBinaryExpression();
         break;
     }
 
@@ -354,10 +296,7 @@ ASTNode* parseBlock() {
       } else {
         ASTNode* oldLeft = left;
         left = malloc(sizeof(ASTNode));
-        left->token = (Token) {AST_GLUE};
-        left->left = oldLeft;
-        left->center = NULL;
-        left->right = root;
+        *left = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), oldLeft, NULL, root);
       }
     }
   }

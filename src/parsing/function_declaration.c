@@ -17,7 +17,7 @@ ASTNode* parseFunctionDeclaration() {
 
   SymbolTableEntry entry;
   strcpy(entry.identifierName, identifier.val.string);
-  entry.type = (Type) { FUNCTION_TYPE, (TypeValue) { .function = (Function) {returnType}}};
+  entry.type = CONSTRUCTOR_FUNCTION_TYPE(returnType); 
   entry.next = NULL;
 
   updateSymbolTable(entry); 
@@ -27,15 +27,13 @@ ASTNode* parseFunctionDeclaration() {
 
   strcpy(CUR_FUNCTION_NAME, identifier.val.string);
 
-  ASTNode* result = malloc(sizeof(ASTNode));
   Token resultToken;
   resultToken.type = FUNCTION;
   resultToken.valueType = entry.type; 
   strcpy(resultToken.val.string, identifier.val.string);
-  result->token = resultToken;
-  result->left = parseBlock();
-  result->center = NULL;
-  result->right = NULL;
+
+  ASTNode* result = malloc(sizeof(ASTNode));
+  *result = CONSTRUCTOR_ASTNODE(resultToken, parseBlock(), NULL, NULL);
 
   return result;
 }

@@ -211,8 +211,8 @@ void scan() {
     case '8':
     case '9':
       token.type = NUMBER_LITERAL;
-      token.valueType = (Type) {NUMBER_TYPE, (TypeValue) {(Number) {NUM_INT, -1, 0}}};
-      token.val = (TokenVal) { .num = scanIntegerLiteral(c, &token.valueType.value.number.numType) };
+      token.valueType = CONSTRUCTOR_INT_TYPE;
+      token.val = CONSTRUCTOR_TOKENVAL_NUM(scanIntegerLiteral(c, &token.valueType.value.number.numType));
       break;
     case ';':
       token.type = SEMICOLON;

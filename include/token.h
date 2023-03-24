@@ -23,7 +23,6 @@ typedef enum {
   LONG,
   CHAR,
   IDENTIFIER,
-  LEFTVALUE_IDENTIFIER,
   FUNCTION,
   FUNCTION_CALL,
   RETURN,
@@ -54,12 +53,12 @@ static const int PRECEDENCE[] = {
   -1, // RIGHT_BRACE
   -1, // LEFT_PAREN
   -1, // RIGHT_PAREN
-  3, // PLUS
-  3, // MINUS
-  4, // STAR
-  4, // SLASH
-  2, // BITSHIFT_LEFT
-  2, // BITSHIFT_RIGHT
+  4, // PLUS
+  4, // MINUS
+  5, // STAR
+  5, // SLASH
+  3, // BITSHIFT_LEFT
+  3, // BITSHIFT_RIGHT
   -1, // NUMBER_LITERAL
   -1, // PRINT
   -1, // FACTORIAL
@@ -70,17 +69,16 @@ static const int PRECEDENCE[] = {
   -1, // LONG
   -1, // CHAR
   -1, // IDENTIFIER
-  -1, // LEFTVALUE_IDENTIFIER
   -1, // FUNCTION
   -1, // FUNCTION_CALL
   -1, // RETURN
-  -1, // ASSIGN
-  0, // EQ
-  0, // NEQ
-  1, // LT
-  1, // LEQ
-  1, // GT
-  1, // GEQ
+  0, // ASSIGN
+  1, // EQ
+  1, // NEQ
+  2, // LT
+  2, // LEQ
+  2, // GT
+  2, // GEQ
   -1, // IF
   -1, // ELSE
   -1, // WHILE
@@ -117,7 +115,6 @@ static const char* TOKENTYPE_STRING[] = {
   "long", // LONG
   "char", // CHAR
   "identifier", // IDENTIFIER
-  "leftvalue identifier", // LEFTVALUE_IDENTIFIER
   "function", // FUNCTION
   "function call", // FUNCTION_CALL
   "return", // RETURN
@@ -219,3 +216,41 @@ typedef struct Token {
   TokenVal val;
   Type valueType;
 } Token;
+
+// Constructors:
+
+#define CONSTRUCTOR_NUMBER(num_type) (Number) {num_type, -1, 0}
+
+#define CONSTRUCTOR_NUMBER_POINTER(num_type, pointer_depth) (Number) {num_type, -1, pointer_depth}
+
+#define CONSTRUCTOR_NUMBER_REGISTER(num_type, register_num, pointer_depth) (Number) {num_type, register_num, pointer_depth}
+
+#define CONSTRUCTOR_INT_TYPE (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER(NUM_INT)}
+
+#define CONSTRUCTOR_NUMBER_TYPE(num_type) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER(num_type)}
+
+#define CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_POINTER(num_type, pointer_depth)}
+
+#define CONSTRUCTOR_NUMBER_TYPE_FULL(num_type, register_num, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_REGISTER(num_type, register_num, pointer_depth)}
+
+#define CONSTRUCTOR_FUNCTION_TYPE(return_type) (Type) {FUNCTION_TYPE, (TypeValue) { .function = (Function) {return_type} }}
+
+#define CONSTRUCTOR_TOKENVAL_NUM(v) (TokenVal) { .num = v }
+
+#define CONSTRUCTOR_TOKEN_EMPTY(token_type) (Token) {token_type, (TokenVal) {0}, CONSTRUCTOR_NUMBER_TYPE(NUM_INT)}
+
+#define CONSTRUCTOR_TOKEN_WITH_NUMBER(token_type, num_type) (Token) {token_type, (TokenVal) {0}, CONSTRUCTOR_NUMBER_TYPE(num_type)}
+
+#define CONSTRUCTOR_TOKEN_WITH_NUMBER_POINTER(token_type, num_type, pointer_depth) (Token) {token_type, (TokenVal) {0}, CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth)}
+
+#define CONSTRUCTOR_TOKEN_CONSTANT(val, num_type) (Token) {NUMBER_LITERAL, (TokenVal) {val}, CONSTRUCTOR_NUMBER_TYPE(num_type)}
+
+#define CONSTRUCTOR_TOKEN_LABEL(label_num) (Token) {LABEL_TOKEN, (TokenVal) {label_num}, CONSTRUCTOR_NUMBER_TYPE(NUM_INT)}
+
+#define CONSTRUCTOR_TOKEN_FUNCTION_CALL(return_type) (Token) {FUNCTION_CALL, (TokenVal) {}, CONSTRUCTOR_FUNCTION_TYPE(return_type)}
+
+#define CONSTRUCTOR_TOKEN_AMPERSAND(num_type, register_num, pointer_depth) (Token) {AMPERSAND, (TokenVal) {}, CONSTRUCTOR_NUMBER_TYPE_FULL(num_type, register_num, pointer_depth)}
+
+#define CONSTRUCTOR_TOKEN_NUMBER_IDENTIFIER(num_type, pointer_depth) (Token) {IDENTIFIER, (TokenVal) {}, CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth)}
+
+#define CONSTRUCTOR_TOKEN_RETURN (Token) {RETURN, (TokenVal) {}, CONSTRUCTOR_NUMBER_TYPE(NUM_INT)}

@@ -19,11 +19,8 @@ ASTNode* parseFunctionCall() {
   matchToken(RIGHT_PAREN);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {FUNCTION_CALL, (TokenVal) {}, (Type) {FUNCTION_TYPE, (TypeValue) { .function = (Function) {entry->type.value.function.returnType}}}};
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_FUNCTION_CALL(entry->type.value.function.returnType), singleArgument, NULL, NULL);
   strcpy(result->token.val.string, name);
-  result->left = singleArgument;
-  result->center = NULL;
-  result->right = NULL;
 
   return result;
 }
@@ -34,10 +31,7 @@ ASTNode* parseTerminalNode() {
   if (GLOBAL_TOKEN.type == END) {
     fatal(RC_ERROR, "Expected semicolon but encountered end of file");
   } else if (GLOBAL_TOKEN.type == NUMBER_LITERAL) {
-    result->token = GLOBAL_TOKEN;
-    result->left = NULL;
-    result->center = NULL;
-    result->right = NULL;
+    *result = CONSTRUCTOR_ASTNODE(GLOBAL_TOKEN, NULL, NULL, NULL);
   } else if (GLOBAL_TOKEN.type == IDENTIFIER) {
     SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
     if (entry == NULL)
@@ -45,12 +39,10 @@ ASTNode* parseTerminalNode() {
     if (entry->type.type == FUNCTION_TYPE)
       return parseFunctionCall();
 
-    result->token = GLOBAL_TOKEN;
+    *result = CONSTRUCTOR_ASTNODE(GLOBAL_TOKEN, NULL, NULL, NULL);
     result->token.valueType.type = NUMBER_TYPE;
     result->token.valueType.value.number.numType = entry->type.value.number.numType;
-    result->left = NULL;
-    result->center = NULL;
-    result->right = NULL;
+    result->token.valueType.value.number.pointerDepth = entry->type.value.number.pointerDepth;
   } else {
     fatal(RC_ERROR, "Expected terminal token but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
   }
@@ -75,7 +67,7 @@ ASTNode* prefixOperatorPassthrough() {
     if (entry == NULL)
       fatal(RC_ERROR, "Attempted to get the address of an undeclared variable %s\n", result->token.val.string);
 
-    result->token = (Token) {AMPERSAND, (TokenVal) {}, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {entry->type.value.number.numType, entry->type.value.number.registerNum, entry->type.value.number.pointerDepth + 1}} } };
+    result->token = CONSTRUCTOR_TOKEN_AMPERSAND(entry->type.value.number.numType, entry->type.value.number.registerNum, entry->type.value.number.pointerDepth + 1);
     strcpy(result->token.val.string, identifierName); 
   } else if (GLOBAL_TOKEN.type == STAR) {
     matchToken(STAR);
@@ -85,11 +77,7 @@ ASTNode* prefixOperatorPassthrough() {
       fatal(RC_ERROR, "Dereference operators must be succeeded by deference operators or variable names but found %s\n", TOKENTYPE_STRING[temp->token.type]);
 
     result = malloc(sizeof(ASTNode));
-    result->left = temp;
-    result->center = NULL;
-    result->right = NULL;
-    result->token = temp->token;
-    result->token.valueType.value.number.pointerDepth--;
+    *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_WITH_NUMBER_POINTER(DEREFERENCE, temp->token.valueType.value.number.numType, temp->token.valueType.value.number.pointerDepth - 1), temp, NULL, NULL);
   } else {
     result = parseTerminalNode();
   }
@@ -110,11 +98,21 @@ ASTNode* prattParse(int prevPrecedence) {
   ASTNode* left = prefixOperatorPassthrough(); // parses terminal node with possible prefix operators 
   
   TokenType tokenType = GLOBAL_TOKEN.type;
-  // TODO Parens in binary expression?
-  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && checkPrecedence(tokenType) > prevPrecedence) {
+  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
     scan();
 
     ASTNode* right = prattParse(PRECEDENCE[tokenType]);
+    int pointerDepthTest = left->token.valueType.value.number.pointerDepth;
+
+    if (tokenType == ASSIGN) {
+      right->isRVal = 1;
+      ASTNode* temp = left;
+      left = right;
+      right = temp;
+    } else {
+      left->isRVal = 1;
+      right->isRVal = 1;
+    }
 
     // Join right subtree with current left subtree
     NumberType resultNumType;
@@ -141,9 +139,7 @@ ASTNode* prattParse(int prevPrecedence) {
     }
 
     ASTNode* newLeft = malloc(sizeof(ASTNode));
-    newLeft->token = (Token) {tokenType, (TokenVal) {0}, (Type) {NUMBER_TYPE, (TypeValue) { .number = (Number) {resultNumType}}}};
-    newLeft->left = left;
-    newLeft->right = right;
+    *newLeft = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_WITH_NUMBER_POINTER(tokenType, resultNumType, pointerDepthTest), left, NULL, right);
     left = newLeft;
 
     tokenType = GLOBAL_TOKEN.type;
@@ -152,6 +148,7 @@ ASTNode* prattParse(int prevPrecedence) {
     fatal(RC_ERROR, "Expected a semicolon but found end of file");
   }
 
+  left->isRVal = 1;
   return left;
 }
 

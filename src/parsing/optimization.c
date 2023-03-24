@@ -58,10 +58,7 @@ ASTNode* optimizeFoldConstantPair(ASTNode* root, int* changed) {
   }
   
   ASTNode* result = malloc(sizeof(ASTNode));
-  result->token = (Token) {NUMBER_LITERAL, (TokenVal) {foldedVal}, (Type) {NUMBER_TYPE, (TypeValue) {(Number) {foldedType, -1, 0}}}};
-  result->left = NULL;
-  result->center = NULL;
-  result->right = NULL;
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_CONSTANT(foldedVal, foldedType), NULL, NULL, NULL);
 
   return result;
 }
@@ -164,10 +161,7 @@ ASTNode* optimizeAssociativity(ASTNode* root, int* changed) {
         ASTNode* optimizedLeft = optimize(root);
 
         ASTNode* result = malloc(sizeof(ASTNode));
-        result->token = root->token;
-        result->left = optimizedLeft;
-        result->center = NULL;
-        result->right = target->right;
+        *result = CONSTRUCTOR_ASTNODE(root->token, optimizedLeft, NULL, target->right);
         return result;
       }
     case MINUS:
@@ -187,10 +181,7 @@ ASTNode* optimizeAssociativity(ASTNode* root, int* changed) {
         ASTNode* optimizedRight = optimize(root);
 
         ASTNode* result = malloc(sizeof(ASTNode));
-        result->token = root->token;
-        result->left = target->left;
-        result->center = NULL;
-        result->right = optimizedRight;
+        *result = CONSTRUCTOR_ASTNODE(root->token, target->left, NULL, optimizedRight);
 
         return result;
       }
