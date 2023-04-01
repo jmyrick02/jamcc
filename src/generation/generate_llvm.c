@@ -508,6 +508,27 @@ LLVMValue generateAshr(LLVMValue leftVR, LLVMValue rightVR) {
   return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
 }
 
+LLVMValue generateAnd(LLVMValue leftVR, LLVMValue rightVR) {
+  int outVRNum = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t%%%d = and %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+}
+
+LLVMValue generateOr(LLVMValue leftVR, LLVMValue rightVR) {
+  int outVRNum = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t%%%d = or %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+}
+
+LLVMValue generateXor(LLVMValue leftVR, LLVMValue rightVR) {
+  int outVRNum = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t%%%d = xor %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+}
+
 LLVMValue generateComparison(Token comparison, LLVMValue leftVR, LLVMValue rightVR) {
   // Check for size incompatibilities
   if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
@@ -582,6 +603,15 @@ LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue righ
       break;
     case BITSHIFT_RIGHT:
       result = generateAshr(leftVR, rightVR);
+      break;
+    case BITWISE_AND:
+      result = generateAnd(leftVR, rightVR);
+      break;
+    case BITWISE_OR:
+      result = generateOr(leftVR, rightVR);
+      break;
+    case BITWISE_XOR:
+      result = generateXor(leftVR, rightVR);
       break;
     case EQ:
     case NEQ:
@@ -776,6 +806,9 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
     case SLASH:
     case BITSHIFT_LEFT:
     case BITSHIFT_RIGHT:
+    case BITWISE_AND:
+    case BITWISE_OR:
+    case BITWISE_XOR:
       leftVR = generateEnsureRegisterLoaded(leftVR, 0);
       rightVR = generateEnsureRegisterLoaded(rightVR, 0);
       return generateBinaryArithmetic(root->token, leftVR, rightVR);

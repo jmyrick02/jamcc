@@ -3,5 +3,5 @@ void myPrint(int num) {
 }
 
 void main() {
-  myPrint(69);
+  myPrint(69 & 69);
 }

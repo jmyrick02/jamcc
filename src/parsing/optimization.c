@@ -16,6 +16,12 @@ long evaluate(TokenType operation, long leftVal, long rightVal) {
       return leftVal << rightVal;
     case BITSHIFT_RIGHT:
       return leftVal >> rightVal;
+    case BITWISE_AND:
+      return leftVal & rightVal;
+    case BITWISE_OR:
+      return leftVal | rightVal;
+    case BITWISE_XOR:
+      return leftVal ^ rightVal;
     case EQ:
       return leftVal == rightVal;
     case NEQ:

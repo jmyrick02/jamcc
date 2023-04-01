@@ -199,9 +199,16 @@ void scan() {
       break;
     case '!':
       token.type = NEQ;
+      scan();
       break;
     case '&':
       token.type = AMPERSAND;
+      break;
+    case '|':
+      token.type = BITWISE_OR;
+      break;
+    case '^':
+      token.type = BITWISE_XOR;
       break;
     case '0':
     case '1':

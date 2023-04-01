@@ -121,10 +121,19 @@ int checkPrecedence(TokenType tokenType) {
   return PRECEDENCE[tokenType];
 }
 
+TokenType getCurExpressionTokenType() {
+  TokenType tokenType = GLOBAL_TOKEN.type;
+  if (tokenType == AMPERSAND) {
+    tokenType = BITWISE_AND; // Since this after prefix operator passthrough, it must be BITWISE_AND
+  }
+
+  return tokenType;
+}
+
 ASTNode* prattParse(int prevPrecedence) {
   ASTNode* left = prefixOperatorPassthrough(); // parses terminal node with possible prefix operators 
   
-  TokenType tokenType = GLOBAL_TOKEN.type;
+  TokenType tokenType = getCurExpressionTokenType();
   while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && tokenType != COMMA && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
     scan();
 
@@ -169,7 +178,7 @@ ASTNode* prattParse(int prevPrecedence) {
     *newLeft = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_WITH_NUMBER_POINTER(tokenType, resultNumType, pointerDepthTest), left, NULL, right);
     left = newLeft;
 
-    tokenType = GLOBAL_TOKEN.type;
+    tokenType = getCurExpressionTokenType();
   }
   if (tokenType == END) {
     fatal(RC_ERROR, "Expected a semicolon but found end of file");

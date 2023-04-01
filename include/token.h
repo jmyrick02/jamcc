@@ -42,6 +42,9 @@ typedef enum {
   CONTINUE,
   LABEL_TOKEN,
   AMPERSAND,
+  BITWISE_AND,
+  BITWISE_OR,
+  BITWISE_XOR,
   DEREFERENCE,
   AST_GLUE,
   END,
@@ -55,12 +58,12 @@ static const int PRECEDENCE[] = {
   -1, // LEFT_PAREN
   -1, // RIGHT_PAREN
   -1, // COMMA
-  4, // PLUS
-  4, // MINUS
-  5, // STAR
-  5, // SLASH
-  3, // BITSHIFT_LEFT
-  3, // BITSHIFT_RIGHT
+  7, // PLUS
+  7, // MINUS
+  8, // STAR
+  8, // SLASH
+  6, // BITSHIFT_LEFT
+  6, // BITSHIFT_RIGHT
   -1, // NUMBER_LITERAL
   -1, // PRINT
   -1, // FACTORIAL
@@ -75,12 +78,12 @@ static const int PRECEDENCE[] = {
   -1, // FUNCTION_CALL
   -1, // RETURN
   0, // ASSIGN
-  1, // EQ
-  1, // NEQ
-  2, // LT
-  2, // LEQ
-  2, // GT
-  2, // GEQ
+  4, // EQ
+  4, // NEQ
+  5, // LT
+  5, // LEQ
+  5, // GT
+  5, // GEQ
   -1, // IF
   -1, // ELSE
   -1, // WHILE
@@ -89,6 +92,9 @@ static const int PRECEDENCE[] = {
   -1, // CONTINUE
   -1, // LABEL_TOKEN
   -1, // AMPERSAND
+  3, // BITWISE_AND
+  1, // BITWISE_OR 
+  2, // BITWISE_XOR 
   -1, // DEREFERENCE
   -1, // AST_GLUE
   -1, // END 
@@ -136,6 +142,9 @@ static const char* TOKENTYPE_STRING[] = {
   "continue", // CONTINUE
   "label", // LABEL_TOKEN
   "ampersand", // AMPERSAND
+  "&", // BITWISE_AND
+  "|", // BITWISE_OR
+  "^", // BITWISE_XOR
   "*", // DEREFERENCE
   "ast glue", // AST_GLUE
   "EOF", // END
