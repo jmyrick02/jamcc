@@ -94,14 +94,14 @@ void parseDeclarationStatement() {
   entry.type = CONSTRUCTOR_NUMBER_TYPE_FULL(num.numType, num.registerNum, num.pointerDepth + 1);
   entry.next = NULL;
 
-  updateSymbolTable(entry);
+  addGlobal(entry);
   generateDeclareGlobal(identifier.val.string, 0, entry.type.value.number);
 }
 
 ASTNode* parseAssignmentStatement() {
   Token identifier = matchToken(IDENTIFIER);
 
-  SymbolTableEntry* entry = getSymbolTableEntry(identifier.val.string);
+  SymbolTableEntry* entry = getTables(identifier.val.string);
   if (entry == NULL)
     fatal(RC_ERROR, "Undefined variable %s\n", identifier.val.string);
 
@@ -209,7 +209,7 @@ ASTNode* parseContinue() {
 ASTNode* parseReturn() {
   matchToken(RETURN);
 
-  SymbolTableEntry* entry = getSymbolTableEntry(CUR_FUNCTION_NAME);
+  SymbolTableEntry* entry = getGlobal(CUR_FUNCTION_NAME);
   if (entry == NULL)
     fatal(RC_ERROR, "Current function does not exist!");
 

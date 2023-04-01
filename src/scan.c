@@ -152,6 +152,9 @@ void scan() {
     case ')':
       token.type = RIGHT_PAREN;
       break;
+    case ',':
+      token.type = COMMA;
+      break;
     case '+':
       token.type = PLUS;
       break;

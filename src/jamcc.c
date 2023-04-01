@@ -34,8 +34,7 @@ int main(int argc, char *argv[]) {
   if (LLVM_GLOBALS_OUTPUT == NULL) 
     fatal(RC_ERROR, "Failed to create file .globals.ll");
 
-  // Initialize symbol table
-  initSymbolTable(512);
+  initTables();
   
   // Initialize scanner
   scan();

@@ -6,4 +6,9 @@ void main() {
   int x; int *y;
   y = &x; *y = 5;
   print x;
+
+  int n;
+  n = 50;
+  int **z; z = &y; **z = n;
+  print x;
 }

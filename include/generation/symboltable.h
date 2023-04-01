@@ -12,10 +12,41 @@ typedef struct SymbolTableEntry {
   char identifierName[MAX_IDENTIFIER_LENGTH + 1];
   Type type;
   struct SymbolTableEntry* next;
+  LLVMValue latestLLVMValue;
 } SymbolTableEntry;
 
-void initSymbolTable(int len);
+#pragma once
+typedef struct SymbolTable {
+  SymbolTableEntry** data;
+  int length;
+} SymbolTable;
 
-void updateSymbolTable(SymbolTableEntry entry);
+#pragma once
+typedef struct SymbolTableNode {
+  SymbolTable* table;
+  struct SymbolTableNode *next;
+} SymbolTableNode;
 
-SymbolTableEntry* getSymbolTableEntry(char* identifier);
+void initTables();
+
+void pushTable(SymbolTable *table);
+
+void popTable();
+
+SymbolTableEntry *getTables(char* identifier);
+
+void addToTables(SymbolTableEntry entry);
+
+SymbolTableEntry *getGlobal(char* identifier);
+
+void addGlobal(SymbolTableEntry entry);
+
+void updateTables(SymbolTableEntry entry);
+
+// CONSTRUCTORS:
+
+#define CONSTRUCTOR_SYMBOL_TABLE (SymbolTable) {calloc(512, sizeof(SymbolTableEntry*)), 512}
+
+#define CONSTRUCTOR_SYMBOL_TABLE_NODE(table_ptr, next) (SymbolTableNode) {table_ptr, next}
+
+#define CONSTRUCTOR_SYMBOL_TABLE_ENTRY(type, next, latest_llvmvalue) (SymbolTableEntry) {"", type, next, latest_llvmvalue}

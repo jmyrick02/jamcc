@@ -1,10 +1,9 @@
 #include "../../include/generation/symboltable.h"
 #include "stdio.h"
 
-SymbolTableEntry** data;
-int length = 0;
+SymbolTableNode *tables;
 
-int hash(char* string) {
+int hash(int length, char* string) {
   unsigned long int hash = FNV_OFFSET_BASIS;
 
   int n = strlen(string);
@@ -16,26 +15,19 @@ int hash(char* string) {
   return hash % length;
 }
 
-// Recommended: 512
-void initSymbolTable(int len) {
-  data = calloc(len, sizeof(SymbolTableEntry*)); // calloc initializes to NULL ptrs
-  length = len;
-}
-
-void updateSymbolTable(SymbolTableEntry entry) {
+void updateSymbolTable(SymbolTable *table, SymbolTableEntry entry) {
   SymbolTableEntry* newEntry = malloc(sizeof(SymbolTableEntry));
+  *newEntry = CONSTRUCTOR_SYMBOL_TABLE_ENTRY(entry.type, NULL, entry.latestLLVMValue);
   strcpy(newEntry->identifierName, entry.identifierName);
-  newEntry->type = entry.type;
-  newEntry->next = NULL;
 
   char* identifier = entry.identifierName;
 
-  int hashResult = hash(identifier);
+  int hashResult = hash(table->length, identifier);
 
-  if (data[hashResult] == NULL) {
-    data[hashResult] = newEntry;
+  if (table->data[hashResult] == NULL) {
+    table->data[hashResult] = newEntry;
   } else {
-    SymbolTableEntry* cur = data[hashResult];
+    SymbolTableEntry* cur = table->data[hashResult];
 
     while (cur != NULL) {
       if (strcmp(cur->identifierName, identifier) == 0) {
@@ -51,11 +43,11 @@ void updateSymbolTable(SymbolTableEntry entry) {
   }
 }
 
-SymbolTableEntry* getSymbolTableEntry(char* identifier) {
-  int hashResult = hash(identifier);
+SymbolTableEntry* getSymbolTableEntry(SymbolTable *table, char* identifier) {
+  int hashResult = hash(table->length, identifier);
 
-  if (data[hashResult] != NULL) {
-    SymbolTableEntry* cur = data[hashResult];
+  if (table->data[hashResult] != NULL) {
+    SymbolTableEntry* cur = table->data[hashResult];
 
     while (cur != NULL) {
       if (strcmp(cur->identifierName, identifier) == 0)
@@ -67,3 +59,78 @@ SymbolTableEntry* getSymbolTableEntry(char* identifier) {
 
   return NULL;
 } 
+
+void initTables() {
+  SymbolTable *global = malloc(sizeof(SymbolTable));
+  *global = CONSTRUCTOR_SYMBOL_TABLE;
+
+  tables = malloc(sizeof(SymbolTableNode));
+  *tables = CONSTRUCTOR_SYMBOL_TABLE_NODE(global, NULL);
+}
+
+void pushTable(SymbolTable *table) {
+  SymbolTableNode *new = malloc(sizeof(SymbolTableNode));
+
+  if (tables == NULL) {
+    *new = CONSTRUCTOR_SYMBOL_TABLE_NODE(table, NULL);
+  } else {
+    *new = CONSTRUCTOR_SYMBOL_TABLE_NODE(table, tables);
+  }
+
+  tables = new;
+}
+
+void popTable() {
+  tables = tables->next;
+}
+
+SymbolTableEntry *getTables(char *identifier) {
+  SymbolTableNode *cur = tables;
+  while (cur != NULL) {
+    SymbolTableEntry *entry = getSymbolTableEntry(cur->table, identifier);
+    if (entry != NULL) {
+      return entry;
+    }
+
+    cur = cur->next;
+  }
+
+  return NULL;
+}
+
+// Adds entry to local context (top of stack)
+void addToTables(SymbolTableEntry entry) {
+  updateSymbolTable(tables->table, entry);
+}
+
+SymbolTableEntry *getGlobal(char* identifier) {
+  SymbolTableNode *cur = tables;
+  while (cur->next != NULL) {
+    cur = cur->next;
+  }
+
+  return getSymbolTableEntry(cur->table, identifier);
+}
+
+void addGlobal(SymbolTableEntry entry) {
+  SymbolTableNode *cur = tables;
+  while (cur->next != NULL) {
+    cur = cur->next;
+  }
+
+  updateSymbolTable(cur->table, entry);
+}
+
+void updateTables(SymbolTableEntry entry) {
+  SymbolTableNode *cur = tables;
+  while (cur != NULL) {
+    if (getSymbolTableEntry(cur->table, entry.identifierName) != NULL) {
+      updateSymbolTable(cur->table, entry);
+      return;
+    }
+    cur = cur->next;
+  }
+
+  // Identifier does not exist, so we'll insert in the local symbol table (top of stack)
+  updateSymbolTable(tables->table, entry);
+}

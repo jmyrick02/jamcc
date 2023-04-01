@@ -9,19 +9,46 @@ ASTNode* parseFunctionCall() {
   Token identifier = matchToken(IDENTIFIER);
   char* name = identifier.val.string;
 
-  SymbolTableEntry* entry = getSymbolTableEntry(name);
+  SymbolTableEntry* entry = getGlobal(name);
   if (entry == NULL) {
     fatal(RC_ERROR, "Undeclared function %s\n", name);
   }
 
-  matchToken(LEFT_PAREN);
-  ASTNode* singleArgument = parseBinaryExpression();
-  matchToken(RIGHT_PAREN);
-
   ASTNode* result = malloc(sizeof(ASTNode));
-  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_FUNCTION_CALL(entry->type.value.function.returnType), singleArgument, NULL, NULL);
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_FUNCTION_CALL(entry->type.value.function.returnType), NULL, NULL, NULL);
   strcpy(result->token.val.string, name);
 
+  // Parse args and check types are as expected
+  // The args will be going to the left and each will branch out to the right
+  ArgumentNode *expectedArgs = entry->type.value.function.args;
+
+  matchToken(LEFT_PAREN);
+
+  ASTNode *args = result;
+
+  ArgumentNode *cur = expectedArgs;
+  while (cur != NULL) {
+    if (args != result)
+      matchToken(COMMA);
+    if (GLOBAL_TOKEN.type == RIGHT_PAREN)
+      fatal(RC_ERROR, "No arguments passed but expected some\n");
+
+    args->left = malloc(sizeof(ASTNode));
+    *args->left = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), NULL, NULL, NULL);
+    args = args->left;
+
+    ASTNode *parsedArg = parseBinaryExpression();
+
+    if (parsedArg->token.valueType.value.number.numType != cur->numType)
+      fatal(RC_ERROR, "Parsed argument type does not match expected argument type\n");
+    args->right = parsedArg;
+
+    cur = cur->next;
+  }
+
+  matchToken(RIGHT_PAREN);
+
+  
   return result;
 }
 
@@ -33,7 +60,7 @@ ASTNode* parseTerminalNode() {
   } else if (GLOBAL_TOKEN.type == NUMBER_LITERAL) {
     *result = CONSTRUCTOR_ASTNODE(GLOBAL_TOKEN, NULL, NULL, NULL);
   } else if (GLOBAL_TOKEN.type == IDENTIFIER) {
-    SymbolTableEntry* entry = getSymbolTableEntry(GLOBAL_TOKEN.val.string);
+    SymbolTableEntry* entry = getTables(GLOBAL_TOKEN.val.string);
     if (entry == NULL)
       fatal(RC_ERROR, "Undeclared variable %s", GLOBAL_TOKEN.val.string);
     if (entry->type.type == FUNCTION_TYPE)
@@ -63,7 +90,7 @@ ASTNode* prefixOperatorPassthrough() {
 
     char identifierName[MAX_IDENTIFIER_LENGTH + 1]; 
     strcpy(identifierName, result->token.val.string);
-    SymbolTableEntry* entry = getSymbolTableEntry(identifierName);
+    SymbolTableEntry* entry = getTables(identifierName);
     if (entry == NULL)
       fatal(RC_ERROR, "Attempted to get the address of an undeclared variable %s\n", result->token.val.string);
 
@@ -98,7 +125,7 @@ ASTNode* prattParse(int prevPrecedence) {
   ASTNode* left = prefixOperatorPassthrough(); // parses terminal node with possible prefix operators 
   
   TokenType tokenType = GLOBAL_TOKEN.type;
-  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
+  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && tokenType != COMMA && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
     scan();
 
     ASTNode* right = prattParse(PRECEDENCE[tokenType]);

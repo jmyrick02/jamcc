@@ -7,6 +7,7 @@ typedef enum {
   RIGHT_BRACE,
   LEFT_PAREN,
   RIGHT_PAREN,
+  COMMA,
   PLUS, 
   MINUS, 
   STAR, 
@@ -53,6 +54,7 @@ static const int PRECEDENCE[] = {
   -1, // RIGHT_BRACE
   -1, // LEFT_PAREN
   -1, // RIGHT_PAREN
+  -1, // COMMA
   4, // PLUS
   4, // MINUS
   5, // STAR
@@ -99,6 +101,7 @@ static const char* TOKENTYPE_STRING[] = {
   "}", // RIGHT_BRACE
   "(", // LEFT_PAREN
   ")", // RIGHT_PAREN
+  ",", // COMMA
   "+", // PLUS
   "-", // MINUS
   "*", // STAR
@@ -186,9 +189,18 @@ typedef enum {
   NUMBER_TYPE,
 } TypeType;
 
+
+#pragma once
+typedef struct ArgumentNode {
+  char name[MAX_IDENTIFIER_LENGTH + 1];
+  NumberType numType;
+  struct ArgumentNode *next;
+} ArgumentNode;
+
 #pragma once
 typedef struct Function {
   TokenType returnType;
+  ArgumentNode *args;
 } Function;
 
 #pragma once
@@ -217,6 +229,15 @@ typedef struct Token {
   Type valueType;
 } Token;
 
+#pragma once
+typedef struct ASTNode {
+  Token token;
+  struct ASTNode* left;
+  struct ASTNode* center;
+  struct ASTNode* right;
+  int isRVal;
+} ASTNode;
+
 // Constructors:
 
 #define CONSTRUCTOR_NUMBER(num_type) (Number) {num_type, -1, 0}
@@ -227,13 +248,21 @@ typedef struct Token {
 
 #define CONSTRUCTOR_INT_TYPE (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER(NUM_INT)}
 
+#define CONSTRUCTOR_TYPE_FROM_NUMBER(num) (Type) {NUMBER_TYPE, num}
+
 #define CONSTRUCTOR_NUMBER_TYPE(num_type) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER(num_type)}
 
 #define CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_POINTER(num_type, pointer_depth)}
 
 #define CONSTRUCTOR_NUMBER_TYPE_FULL(num_type, register_num, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_REGISTER(num_type, register_num, pointer_depth)}
 
-#define CONSTRUCTOR_FUNCTION_TYPE(return_type) (Type) {FUNCTION_TYPE, (TypeValue) { .function = (Function) {return_type} }}
+#define CONSTRUCTOR_ARGUMENT_NODE(num_type, next) (ArgumentNode) {"", num_type, next}
+
+#define CONSTRUCTOR_PASSED_ARGUMENT_NODE(root, next) (PassedArgumentNode) {root, next}
+
+#define CONSTRUCTOR_FUNCTION_VALUE(return_type, args) (Function) {return_type, args}
+
+#define CONSTRUCTOR_FUNCTION_TYPE(return_type, args) (Type) {FUNCTION_TYPE, (TypeValue) { .function = CONSTRUCTOR_FUNCTION_VALUE(return_type, args) }}
 
 #define CONSTRUCTOR_TOKENVAL_NUM(v) (TokenVal) { .num = v }
 
@@ -247,10 +276,12 @@ typedef struct Token {
 
 #define CONSTRUCTOR_TOKEN_LABEL(label_num) (Token) {LABEL_TOKEN, (TokenVal) {label_num}, CONSTRUCTOR_NUMBER_TYPE(NUM_INT)}
 
-#define CONSTRUCTOR_TOKEN_FUNCTION_CALL(return_type) (Token) {FUNCTION_CALL, (TokenVal) {}, CONSTRUCTOR_FUNCTION_TYPE(return_type)}
+#define CONSTRUCTOR_TOKEN_FUNCTION_CALL(return_type) (Token) {FUNCTION_CALL, (TokenVal) { }, CONSTRUCTOR_FUNCTION_TYPE(return_type, NULL)}
 
 #define CONSTRUCTOR_TOKEN_AMPERSAND(num_type, register_num, pointer_depth) (Token) {AMPERSAND, (TokenVal) {}, CONSTRUCTOR_NUMBER_TYPE_FULL(num_type, register_num, pointer_depth)}
 
 #define CONSTRUCTOR_TOKEN_NUMBER_IDENTIFIER(num_type, pointer_depth) (Token) {IDENTIFIER, (TokenVal) {}, CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth)}
 
 #define CONSTRUCTOR_TOKEN_RETURN (Token) {RETURN, (TokenVal) {}, CONSTRUCTOR_NUMBER_TYPE(NUM_INT)}
+
+#define CONSTRUCTOR_ASTNODE(token, left, center, right) (ASTNode) {token, left, center, right, 0}

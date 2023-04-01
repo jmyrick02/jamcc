@@ -18,7 +18,7 @@ void nice() {
 }
 
 void main() {
-  print fred(0);
+  print fred();
   factorial 5;
-  nice(0);
+  nice();
 }

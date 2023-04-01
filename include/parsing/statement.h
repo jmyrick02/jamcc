@@ -6,4 +6,6 @@
 
 Token matchToken(TokenType type);
 
+Number matchNumType();
+
 ASTNode* parseBlock();
