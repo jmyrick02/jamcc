@@ -148,9 +148,14 @@ ASTNode* parseWhile() {
   matchToken(RIGHT_PAREN);
 
   ASTNode* block = parseBlock();
-  
+  ASTNode* elseBlock = NULL;
+  if (GLOBAL_TOKEN.type == ELSE) {
+    matchToken(ELSE);
+    elseBlock = parseBlock();
+  }
+
   ASTNode* result = malloc(sizeof(ASTNode));
-  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, NULL, block);
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, block, elseBlock);
   return result;
 }
 
@@ -175,15 +180,20 @@ ASTNode* parseFor() {
   matchToken(RIGHT_PAREN);
 
   ASTNode* block = parseBlock();
+  ASTNode* elseBlock = NULL;
+  if (GLOBAL_TOKEN.type == ELSE) {
+    matchToken(ELSE);
+    elseBlock = parseBlock();
+  }
 
   ASTNode* glue = malloc(sizeof(ASTNode));
   *glue = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), block, NULL, postamble);
 
   ASTNode* whileNode = malloc(sizeof(ASTNode));
-  *whileNode = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, NULL, glue);
+  *whileNode = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(WHILE), condition, glue, elseBlock);
 
   ASTNode* result = malloc(sizeof(ASTNode));
-  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), preamble, NULL, whileNode);
+  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(AST_GLUE), preamble, whileNode, NULL);
 
   return result;
 }

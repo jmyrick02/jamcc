@@ -922,13 +922,14 @@ LLVMValue generateIf(ASTNode* root) {
 
 LLVMValue generateWhile(ASTNode* root) {
   LLVMValue conditionLabel = getNextLabel();
+  LLVMValue elseLabel = getNextLabel();
   LLVMValue endLabel = getNextLabel();
 
   pushBreakLabel(endLabel);
 
   // Continue label depends on whether for or while loop
-  if (root->right->token.type == AST_GLUE && root->right->right->left->token.type == LABEL_TOKEN) { // This is a for loop
-    LLVMValue postambleLabel = CONSTRUCTOR_LLVMVALUE_LABEL(root->right->right->left->token.val.num);
+  if (root->center->token.type == AST_GLUE && root->center->right->left->token.type == LABEL_TOKEN) { // This is a for loop
+    LLVMValue postambleLabel = CONSTRUCTOR_LLVMVALUE_LABEL(root->center->right->left->token.val.num);
     pushContinueLabel(postambleLabel);
   } else { // This is a while loop
     pushContinueLabel(conditionLabel);
@@ -937,10 +938,15 @@ LLVMValue generateWhile(ASTNode* root) {
   generateJump(conditionLabel);
   generateLabel(conditionLabel);
 
-  generateFromAST(root->left, endLabel, root->token.type);
-  generateFromAST(root->right, CONSTRUCTOR_LLVMVALUE_NONE, root->token.type);
+  generateFromAST(root->left, elseLabel, root->token.type);
+  generateFromAST(root->center, CONSTRUCTOR_LLVMVALUE_NONE, root->token.type);
 
   generateJump(conditionLabel);
+
+  generateLabel(elseLabel);
+  generateFromAST(root->right, CONSTRUCTOR_LLVMVALUE_NONE, root->token.type);
+  generateJump(endLabel);
+
   generateLabel(endLabel);
 
   popContinueLabel();
