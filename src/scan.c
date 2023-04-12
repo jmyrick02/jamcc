@@ -285,11 +285,7 @@ void scan() {
         scanIdentifier(c, identifierBuffer, MAX_IDENTIFIER_LENGTH);
         
         // Check keywords
-        if (strcmp(identifierBuffer, "print") == 0) {
-          token.type = PRINT;
-        } else if (strcmp(identifierBuffer, "factorial") == 0) {
-          token.type = FACTORIAL;
-        } else if (strcmp(identifierBuffer, "void") == 0) {
+        if (strcmp(identifierBuffer, "void") == 0) {
           token.type = VOID;
         } else if (strcmp(identifierBuffer, "short") == 0) {
           token.type = SHORT;

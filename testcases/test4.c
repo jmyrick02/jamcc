@@ -1,5 +1,5 @@
 void myPrint(int num) {
-  print num;
+  printint(num);
 }
 
 void main() {

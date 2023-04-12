@@ -44,58 +44,24 @@ Number matchNumType() {
   return (Number) {numType, -1, pointerDepth};
 }
 
-ASTNode* parsePrintStatement() {
-  matchToken(PRINT);
-
-  ASTNode* result = malloc(sizeof(ASTNode));
-  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(PRINT), parseBinaryExpression(), NULL, NULL);
-
-  if (result->left->token.valueType.value.number.numType != NUM_INT && result->left->token.valueType.value.function.returnType != INT)
-    fatal(RC_ERROR, "Print statements only work on integers, received %s\n", NUMBERTYPE_STRING[result->left->token.valueType.value.number.numType]);
-    
-  return result;
-}
-
-ASTNode* parseFactorialStatement() {
-  matchToken(FACTORIAL);
-  Token literal = matchToken(NUMBER_LITERAL);
-  if (literal.valueType.value.number.numType != NUM_INT)
-    fatal(RC_ERROR, "Must pass in integer literal to factorial statements\n");
-
-  ASTNode* cur = malloc(sizeof(ASTNode));
-  *cur = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(STAR), NULL, NULL, NULL);
-
-  ASTNode* result = malloc(sizeof(ASTNode));
-  *result = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(PRINT), cur, NULL, NULL);
-
-  int num = literal.val.num;
-  while (num > 1) {
-    cur->left = malloc(sizeof(ASTNode));
-    *cur->left = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_CONSTANT(num, NUM_INT), NULL, NULL, NULL);
-
-    cur->right = malloc(sizeof(ASTNode));
-    *cur->right = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(STAR), NULL, NULL, NULL);
-
-    cur = cur->right;
-    num--;
-  }
-  cur->token = CONSTRUCTOR_TOKEN_CONSTANT(1, NUM_INT);
-
-  return result;
-}
-
-void parseDeclarationStatement() {
+ASTNode *parseDeclarationStatement() {
   Number num = matchNumType();
 
   Token identifier = matchToken(IDENTIFIER);
 
   SymbolTableEntry entry;
   strcpy(entry.identifierName, identifier.val.string);
-  entry.type = CONSTRUCTOR_NUMBER_TYPE_FULL(num.numType, num.registerNum, num.pointerDepth + 1);
+  entry.type = CONSTRUCTOR_NUMBER_TYPE_FULL(num.numType, num.registerNum, num.pointerDepth);
   entry.next = NULL;
 
-  addGlobal(entry);
-  generateDeclareGlobal(identifier.val.string, 0, entry.type.value.number);
+  addToTables(entry);
+  
+  Token resultToken = CONSTRUCTOR_TOKEN_EMPTY(VAR_DECL);
+  strcpy(resultToken.val.string, identifier.val.string);
+
+  ASTNode *result = malloc(sizeof(ASTNode));
+  *result = CONSTRUCTOR_ASTNODE(resultToken, NULL, NULL, NULL);
+  return result;
 }
 
 ASTNode* parseAssignmentStatement() {
@@ -246,19 +212,11 @@ ASTNode* parseBlock() {
     int returnLeft = 0;
 
     switch (GLOBAL_TOKEN.type) {
-      case PRINT:
-        root = parsePrintStatement();
-        break;
-      case FACTORIAL:
-        root = parseFactorialStatement();
-        break;
       case SHORT:
       case INT:
       case LONG:
       case CHAR:
-        parseDeclarationStatement();
-        root = malloc(sizeof(ASTNode));
-        *root = CONSTRUCTOR_ASTNODE(CONSTRUCTOR_TOKEN_EMPTY(UNKNOWN_TOKEN), NULL, NULL, NULL);
+        root = parseDeclarationStatement();
         break;
       case IF:
         root = parseIf();

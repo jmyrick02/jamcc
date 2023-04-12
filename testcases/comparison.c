@@ -1,3 +1,3 @@
 void main() {
-  print 2 < 2;
+  printint(2 < 2);
 }

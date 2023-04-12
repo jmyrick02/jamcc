@@ -14,11 +14,10 @@ int fred() {
 }
 
 void nice() {
-  print 69;
+  printint(69);
 }
 
 void main() {
-  print fred();
-  factorial 5;
+  printint(fred());
   nice();
 }

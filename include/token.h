@@ -15,8 +15,6 @@ typedef enum {
   BITSHIFT_LEFT,
   BITSHIFT_RIGHT,
   NUMBER_LITERAL,
-  PRINT,
-  FACTORIAL,
   SEMICOLON,
   VOID,
   SHORT,
@@ -26,6 +24,7 @@ typedef enum {
   IDENTIFIER,
   FUNCTION,
   FUNCTION_CALL,
+  VAR_DECL,
   RETURN,
   ASSIGN,
   EQ,
@@ -65,8 +64,6 @@ static const int PRECEDENCE[] = {
   6, // BITSHIFT_LEFT
   6, // BITSHIFT_RIGHT
   -1, // NUMBER_LITERAL
-  -1, // PRINT
-  -1, // FACTORIAL
   -1, // SEMICOLON
   -1, // VOID
   -1, // SHORT
@@ -76,6 +73,7 @@ static const int PRECEDENCE[] = {
   -1, // IDENTIFIER
   -1, // FUNCTION
   -1, // FUNCTION_CALL
+  -1, // VAR_DECL
   -1, // RETURN
   0, // ASSIGN
   4, // EQ
@@ -115,8 +113,6 @@ static const char* TOKENTYPE_STRING[] = {
   "<<", // BITSHIFT_LEFT
   ">>", // BITSHIFT_RIGHT
   "number literal", // NUMBER_LITERAL
-  "print", // PRINT
-  "factorial", // FACTORIAL
   ";", // SEMICOLON
   "void", // VOID
   "short", // SHORT
@@ -126,6 +122,7 @@ static const char* TOKENTYPE_STRING[] = {
   "identifier", // IDENTIFIER
   "function", // FUNCTION
   "function call", // FUNCTION_CALL
+  "variable declaration", // VAR_DECL
   "return", // RETURN
   "assign", // ASSIGN
   "==", // EQ

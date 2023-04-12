@@ -168,6 +168,10 @@ char* LLVMValueToLLVM(LLVMValue val) {
   return result;
 }
 
+int isLocalVar(LLVMValue vr) {
+  return vr.type == VIRTUAL_REGISTER && strcmp(vr.name, "") != 0;
+}
+
 char *functionArgsTypeRepresentation(Function function) {
   int argc = 0;
   ArgumentNode *cur = function.args;
@@ -222,7 +226,7 @@ char* functionArgsLLVMRepr(Function function) {
 
     int length = strlen(NUMBERTYPE_LLVM[cur->numType]) + 2 + strlen(cur->name);
     char* argRepr = malloc(sizeof(char) * length);
-    sprintf(argRepr, "%s %%%s", NUMBERTYPE_LLVM[cur->numType], cur->name);
+    sprintf(argRepr, "%s %%%d", NUMBERTYPE_LLVM[cur->numType], getNextVirtualRegisterNumber() - 1);
 
     int argReprActualLength = strlen(argRepr);
     for (int i = 0; i < argReprActualLength; i++) {
@@ -357,6 +361,14 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
   }
 }
 
+void generateStackAllocation(LLVMNode* head) {
+  LLVMNode* cur = head;
+  while (cur != NULL) {
+    fprintf(LLVM_OUTPUT, "\t%s = alloca %s, align %d\n", LLVMValueToLLVM(cur->val), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(cur->val.numType, cur->val.pointerDepth)), cur->alignBytes);
+    cur = cur->next;
+  }
+}
+
 void generatePreamble() {
   fprintf(LLVM_OUTPUT, "; ModuleID = '%s'\n", ARG_FILEPATH);
   fprintf(LLVM_OUTPUT, "source_filename = \"%s\"\n", ARG_FILEPATH);
@@ -364,6 +376,10 @@ void generatePreamble() {
   fprintf(LLVM_OUTPUT, "target triple = \"%s\"\n", TARGET_TRIPLE);
   fprintf(LLVM_OUTPUT, "\n");
   fprintf(LLVM_OUTPUT, "@print_int_fstring = private unnamed_addr constant [4 x i8] c\"%%d\\0A\\00\", align 1\n");
+  fprintf(LLVM_OUTPUT, "define dso_local i32 @printint(i32 %%value) {\n");
+  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), i32 %%value)\n");
+  fprintf(LLVM_OUTPUT, "\tret i32 %%value\n");
+  fprintf(LLVM_OUTPUT, "}\n");
   fprintf(LLVM_OUTPUT, "\n");
 
   fprintf(LLVM_OUTPUT, LLVM_GLOBALS_INJECTION_IDENTIFIER); 
@@ -386,31 +402,12 @@ void generatePostamble() {
   fprintf(LLVM_OUTPUT, "!3 = !{!\"%s\"}\n", CLANG_VERSION);
 }
 
-void generateFunctionPreamble(char* name) {
-  SymbolTableEntry* entry = getTables(name);
-  if (entry == NULL)
-    fatal(RC_ERROR, "Generating undeclared function preamble\n");
-  
-  fprintf(LLVM_OUTPUT, "define dso_local %s @%s(%s) #0 {\n", tokenTypeToLLVM(entry->type.value.function.returnType), name, functionArgsLLVMRepr(entry->type.value.function));
-}
 
-void generateFunctionPostamble(char* name) {
-  SymbolTableEntry* entry = getTables(name);
-  if (entry == NULL)
-    fatal(RC_ERROR, "Tried to close undeclared function %s\n", name);
-
-  fprintf(LLVM_OUTPUT, "\tret ");
-
-  if (entry->type.value.function.returnType == VOID) {
-    fprintf(LLVM_OUTPUT, "void\n");
-  } else {
-    fprintf(LLVM_OUTPUT, "%s 0\n", tokenTypeToLLVM(entry->type.value.function.returnType));
-  }
-
-  fprintf(LLVM_OUTPUT, "}\n\n");
-}
 
 LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
+  if (vr.numType == newWidth)
+    return vr;
+
   if (vr.type == CONSTANT) {
     vr.numType = newWidth;
     if (newWidth == NUM_CHAR && vr.val > MAX_CHAR_VALUE)
@@ -435,15 +432,10 @@ LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
   return CONSTRUCTOR_LLVMVALUE_VR(outVR, newWidth, 0);
 }
 
-void generateStackAllocation(LLVMNode* head) {
-  LLVMNode* cur = head;
-  while (cur != NULL) {
-    fprintf(LLVM_OUTPUT, "\t%%%ld = alloca %s, align %d\n", cur->val.val, numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(cur->val.numType, cur->val.pointerDepth)), cur->alignBytes);
-    cur = cur->next;
-  }
-}
-
 LLVMValue generateEnsureRegisterLoaded(LLVMValue vr, int loadLevel) {
+  if (loadLevel < 0)
+    loadLevel = 0;
+
   // Check if register is already loaded
   if (vr.pointerDepth == loadLevel)
     return vr;
@@ -451,13 +443,35 @@ LLVMValue generateEnsureRegisterLoaded(LLVMValue vr, int loadLevel) {
   // Load the register since it's unloaded
   LLVMValue newVR = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), vr.numType, vr.pointerDepth - 1);
   newVR.lastLoaded = vr.lastLoaded;
-  newVR.name = vr.name;
 
-  fprintf(LLVM_OUTPUT, "\t%%%ld = load %s, %s %%%ld\n", newVR.val, numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(newVR.numType, newVR.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(vr.numType, vr.pointerDepth)), vr.val); // TODO doesn't work O1 because name and last loaded not transferred?
+  fprintf(LLVM_OUTPUT, "\t; generateEnsureRegisterLoaded\n");
+  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(newVR), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(newVR.numType, newVR.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(vr.numType, vr.pointerDepth)), LLVMValueToLLVM(vr));
 
-  return newVR;
+  return generateEnsureRegisterLoaded(newVR, loadLevel);
 }
 
+void generateStoreLocal(SymbolTableEntry *entry, LLVMValue rvalue) {
+  if (entry == NULL)
+    fatal(RC_ERROR, "Storing in nonexistent local variable\n");
+
+  if (rvalue.type == CONSTANT) {
+    LLVMValue lvar = entry->latestLLVMValue;
+
+    rvalue = generateEnsureRegisterLoaded(rvalue, lvar.pointerDepth - 1);
+    rvalue = generateIntResize(rvalue, lvar.numType);
+
+    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(rvalue.numType, rvalue.pointerDepth)), LLVMValueToLLVM(rvalue), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(lvar.numType, lvar.pointerDepth)), lvar.name);
+  } else { // rvalue is a register
+    entry->latestLLVMValue = rvalue;
+  }
+}
+
+void generateStoreLocalIntoLLVMValue(LLVMValue var, LLVMValue rvalue) {
+  rvalue = generateEnsureRegisterLoaded(rvalue, var.pointerDepth - 1);
+  rvalue = generateIntResize(rvalue, var.numType);
+
+  fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(rvalue.numType, rvalue.pointerDepth)), LLVMValueToLLVM(rvalue), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(var.numType, var.pointerDepth)), var.name);
+}
 LLVMValue generateStoreConstant(long constant, NumberType type) {
   LLVMValue vr = popFreeRegister(type, 0);
   fprintf(LLVM_OUTPUT, "\tstore %s %ld, %s* %%%ld\n", NUMBERTYPE_LLVM[type], constant, NUMBERTYPE_LLVM[type], vr.val);
@@ -635,11 +649,13 @@ LLVMValue generateLoadGlobal(char* string) {
     fatal(RC_ERROR, "Undeclared variable %s encountered while loading global\n", string);
 
   int outVR = getNextVirtualRegisterNumber();
+  fprintf(LLVM_OUTPUT, "\t; generateLoadGlobal\n");
   fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s @%s\n", outVR, numberToLLVM(CONSTRUCTOR_NUMBER_REGISTER(globalEntry->type.value.number.numType, globalEntry->type.value.number.registerNum, globalEntry->type.value.number.pointerDepth - 1)), numberToLLVM(globalEntry->type.value.number), string);
   return CONSTRUCTOR_LLVMVALUE_VR_LAST_LOADED(outVR, globalEntry->type.value.number.numType, globalEntry->type.value.number.pointerDepth - 1, string);
 }
 
 void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
+  printf("Storing global %s\n", string);
   SymbolTableEntry* globalEntry = getTables(string);
   if (globalEntry == NULL)
     fatal(RC_ERROR, "Undeclared variable %s encountered while storing global\n", string);
@@ -651,14 +667,27 @@ void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
   fprintf(LLVM_OUTPUT, "\tstore %s %%%ld, %s @%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(outVR.numType, outVR.pointerDepth)), outVR.val, numberToLLVM(globalEntry->type.value.number), string);
 }
 
-void generateStoreLocal(SymbolTableEntry *entry, LLVMValue rvalue) {
-  if (entry == NULL)
-    fatal(RC_ERROR, "Storing in nonexistent local variable\n");
+LLVMValue generateDeclareLocal(char* name, Number num) {
+  LLVMValue outVR = CONSTRUCTOR_LLVMVALUE_VR(-1, num.numType, num.pointerDepth);
+  outVR.name = malloc(sizeof(char) * strlen(name));
+  strcpy(outVR.name, name);
 
-  entry->latestLLVMValue = rvalue;
+  LLVMNode* temp = malloc(sizeof(LLVMNode));
+  temp->val = outVR;
+  temp->alignBytes = 4;
+  temp->next = NULL;
+  generateStackAllocation(temp);
+
+  outVR.pointerDepth++;
+
+  return outVR;
 }
 
 void generateStoreDereference(LLVMValue destination, LLVMValue value) {
+  // Load local variables once
+  if (isLocalVar(value))
+    value = generateEnsureRegisterLoaded(value, value.pointerDepth - 1);
+
   destination = generateEnsureRegisterLoaded(destination, value.pointerDepth + 1);
 
   if (strcmp(destination.lastLoaded, "") == 0 || destination.pointerDepth == value.pointerDepth + 1) {
@@ -703,23 +732,30 @@ void generateReturn(LLVMValue returnValue, char* functionName) {
   if (entry == NULL)
     fatal(RC_ERROR, "Tried to return for undeclared function %s\n", functionName);
 
-  LLVM_VIRTUAL_REGISTER_NUMBER++;
   if (entry->type.value.function.returnType == VOID) {
     fprintf(LLVM_OUTPUT, "\tret void\n");
   } else {
     returnValue = generateEnsureRegisterLoaded(returnValue, 0);
     fprintf(LLVM_OUTPUT, "\tret %s %s\n", NUMBERTYPE_LLVM[returnValue.numType], LLVMValueToLLVM(returnValue)); 
   }
+
+  LLVM_VIRTUAL_REGISTER_NUMBER++;
 }
 
 LLVMValue generateFunctionCall(char* name, LLVMNode *args) {
   LLVMValue result = CONSTRUCTOR_LLVMVALUE_NONE; 
 
-  SymbolTableEntry* entry = getTables(name);
+  SymbolTableEntry* entry = getGlobal(name);
   if (entry == NULL)
     fatal(RC_ERROR, "Generating call for undeclared function %s\n", name);
   if (entry->type.type != FUNCTION_TYPE)
     fatal(RC_ERROR, "Calling a non-function identifier %s as a function\n", name);
+
+  LLVMNode *cur = args;
+  while (cur != NULL) {
+    cur->val = generateEnsureRegisterLoaded(cur->val, 0); 
+    cur = cur->next;
+  }
 
   fprintf(LLVM_OUTPUT, "\t");
 
@@ -740,36 +776,86 @@ LLVMValue generateGetAddress(char* identifier) {
   if (entry->type.type != NUMBER_TYPE)
     fatal(RC_ERROR, "Can only get the address of numbers\n");
 
-  LLVMValue out = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), entry->type.value.number.numType, entry->type.value.number.pointerDepth); 
+  LLVMValue lv = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), entry->latestLLVMValue.numType, entry->latestLLVMValue.pointerDepth);
 
-  LLVMNode* temp = malloc(sizeof(LLVMNode));
-  temp->val = out;
-  temp->alignBytes = 4;
-  temp->next = NULL;
-  generateStackAllocation(temp);
+  lv.pointerDepth--;
 
-  out.pointerDepth++;
+  fprintf(LLVM_OUTPUT, "\t%s = getelementptr inbounds %s, %s %s\n", LLVMValueToLLVM(lv), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(lv.numType, lv.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(entry->latestLLVMValue.numType, entry->latestLLVMValue.pointerDepth)), LLVMValueToLLVM(entry->latestLLVMValue));
 
-  fprintf(LLVM_OUTPUT, "\tstore %s @%s, %s %%%ld\n", numberToLLVM(entry->type.value.number), identifier, numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(out.numType, out.pointerDepth)), out.val);
-  
-  return out;
+  lv.pointerDepth++;
+  return lv;
 }
 
 LLVMValue generateDereference(LLVMValue value) {
   LLVMValue out = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), value.numType, value.pointerDepth - 1);
 
-  fprintf(LLVM_OUTPUT, "\t%%%ld = load %s, %s %%%ld\n", out.val, numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(out.numType, out.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(value.numType, value.pointerDepth)), value.val);
+  fprintf(LLVM_OUTPUT, "\t; generateDereference\n");
+  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(out), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(out.numType, out.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(value.numType, value.pointerDepth)), LLVMValueToLLVM(value));
 
   return out;
 }
 
 void generatePrintInt(LLVMValue vr) {
-  vr = generateEnsureRegisterLoaded(vr, vr.pointerDepth);
+  vr = generateEnsureRegisterLoaded(vr, 0);
+  vr = generateIntResize(vr, NUM_INT);
 
-  LLVM_VIRTUAL_REGISTER_NUMBER++;
-  fprintf(LLVM_OUTPUT, "\tcall i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @print_int_fstring , i32 0, i32 0), %s %s)\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(vr.numType, vr.pointerDepth)), LLVMValueToLLVM(vr)); // TODO caused by ensureregisterloaded??
+  LLVMNode* temp = malloc(sizeof(LLVMNode));
+  temp->val = vr;
+  temp->alignBytes = 4;
+  temp->next = NULL;
+
+  generateFunctionCall("printint", temp); 
 }
 
+void generateFunctionPreamble(char* name) {
+  SymbolTableEntry* entry = getGlobal(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Generating undeclared function preamble\n");
+  
+  fprintf(LLVM_OUTPUT, "define dso_local %s @%s(%s) #0 {\n", tokenTypeToLLVM(entry->type.value.function.returnType), name, functionArgsLLVMRepr(entry->type.value.function));
+
+  ArgumentNode *cur = entry->type.value.function.args;
+  int i = 0;
+  while (cur != NULL) {
+    LLVMValue arg = CONSTRUCTOR_LLVMVALUE_VR(-1, cur->numType, 0);
+    arg.name = malloc(sizeof(char) * strlen(cur->name));
+    strcpy(arg.name, cur->name);
+
+    LLVMNode* temp = malloc(sizeof(LLVMNode));
+    temp->val = arg;
+    temp->alignBytes = 4;
+    temp->next = NULL;
+    generateStackAllocation(temp);
+
+    arg.pointerDepth++;
+
+    generateStoreLocalIntoLLVMValue(arg, CONSTRUCTOR_LLVMVALUE_VR(i, arg.numType, arg.pointerDepth - 1));
+
+    SymbolTableEntry *entry = getTables(cur->name);
+    if (entry == NULL)
+      fatal(RC_ERROR, "Lost track of argument with name %s\n", cur->name);
+    entry->latestLLVMValue = arg;
+
+    cur = cur->next;
+    i++;
+  }
+}
+
+void generateFunctionPostamble(char* name) {
+  SymbolTableEntry* entry = getTables(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Tried to close undeclared function %s\n", name);
+
+  fprintf(LLVM_OUTPUT, "\tret ");
+
+  if (entry->type.value.function.returnType == VOID) {
+    fprintf(LLVM_OUTPUT, "void\n");
+  } else {
+    fprintf(LLVM_OUTPUT, "%s 0\n", tokenTypeToLLVM(entry->type.value.function.returnType));
+  }
+
+  fprintf(LLVM_OUTPUT, "}\n\n");
+}
 LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperation) {
   if (root == NULL)
     return CONSTRUCTOR_LLVMVALUE_NONE;
@@ -818,18 +904,35 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
     case LEQ:
     case GT:
     case GEQ:
-      leftVR = generateEnsureRegisterLoaded(leftVR, 0);
-      rightVR = generateEnsureRegisterLoaded(rightVR, 0);
-      if (parentOperation == IF || parentOperation == WHILE) {
-        return generateCompareJump(root->token, leftVR, rightVR, label);
-      } else {
-        return generateComparison(root->token, leftVR, rightVR);
+      {
+        int pointerDepth;
+        if (leftVR.pointerDepth <= rightVR.pointerDepth) {
+          pointerDepth = leftVR.pointerDepth;
+        } else {
+          pointerDepth = rightVR.pointerDepth;
+        }
+        if (isLocalVar(leftVR)) {
+          pointerDepth--;
+        }
+
+        leftVR = generateEnsureRegisterLoaded(leftVR, pointerDepth);
+        rightVR = generateEnsureRegisterLoaded(rightVR, pointerDepth);
+        if (parentOperation == IF || parentOperation == WHILE) {
+          return generateCompareJump(root->token, leftVR, rightVR, label);
+        } else {
+          return generateComparison(root->token, leftVR, rightVR);
+        }
+      }
+    case VAR_DECL:
+      {
+        SymbolTableEntry *entry = getTables(root->token.val.string);
+        if (entry == NULL)
+          fatal(RC_ERROR, "Declaring variable '%s' but not in symbol tables\n", root->token.val.string);
+        entry->latestLLVMValue = generateDeclareLocal(root->token.val.string, entry->type.value.number);
+        return CONSTRUCTOR_LLVMVALUE_NONE;
       }
     case NUMBER_LITERAL:
       return generateStoreConstant(root->token.val.num, root->token.valueType.value.number.numType);
-    case PRINT:
-      generatePrintInt(leftVR);
-      return CONSTRUCTOR_LLVMVALUE_NONE;
     case IDENTIFIER:
       if (root->isRVal || parentOperation == DEREFERENCE) {
         if (getGlobal(root->token.val.string) != NULL) {
@@ -850,7 +953,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
             return leftVR;
           } else {
             SymbolTableEntry *entry = getTables(root->right->token.val.string);
-            generateStoreLocal(entry, leftVR);
+            generateStoreLocalIntoLLVMValue(entry->latestLLVMValue, leftVR);
             return leftVR;
           }
         } else if (root->right->token.type == DEREFERENCE) {
@@ -910,7 +1013,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
       return generateGetAddress(root->token.val.string);
     case DEREFERENCE:
       if (root->isRVal) {
-        return generateDereference(leftVR);
+        return generateDereference(generateDereference(leftVR));
       } else {
         return leftVR;
       }

@@ -1,24 +1,24 @@
 int main() {
   int a;
   a = 18;
-  print a;
+  printint(a);
 
   int *b;
   b = &a;
-  print b;
+  printint(b);
 
   int c;
   c = 12;
-  print c;
+  printint(c);
   int *f;
   f = &c;
   int d;
   d = *f;
-  print d;
+  printint(d);
 
   int g; int *h; int **j; int ***k;
   g = 5; h = &g; j = &h; k = &j;
   int n; int *m; int **l;
   l = *k; m = *l; n = *m;
-  print n;
+  printint(n);
 }

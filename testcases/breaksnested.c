@@ -10,7 +10,7 @@ void main() {
       if (j > 5) {
         break;
       }
-      print i + j;
+      printint(i + j);
     }
   }
 }

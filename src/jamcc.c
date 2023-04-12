@@ -35,6 +35,13 @@ int main(int argc, char *argv[]) {
     fatal(RC_ERROR, "Failed to create file .globals.ll");
 
   initTables();
+  // "Standard library" (currently just printint)
+  ArgumentNode *arg = malloc(sizeof(ArgumentNode));
+  *arg = CONSTRUCTOR_ARGUMENT_NODE(NUM_INT, NULL);
+  strcpy(arg->name, "value");
+  SymbolTableEntry printintEntry = CONSTRUCTOR_SYMBOL_TABLE_ENTRY(CONSTRUCTOR_FUNCTION_TYPE(INT, arg), NULL, CONSTRUCTOR_LLVMVALUE_NONE);
+  strcpy(printintEntry.identifierName, "printint");
+  addGlobal(printintEntry);
   
   // Initialize scanner
   scan();

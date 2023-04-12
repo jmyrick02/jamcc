@@ -6,24 +6,24 @@ int main() {
       break;
     }
 
-    print i;
+    printint(i);
     i = i + 1;
   } else {
-    print 1337;
+    printint(1337);
   }
 
-  print 69;
-  print i;
+  printint(69);
+  printint(i);
 
   for (i = 0; i < 10; i = i + 1) {
     if (i == 5) {
       break;
     }
-    print i;
+    printint(i);
   } else {
-    print 420;
+    printint(420);
   }
 
-  print 69;
-  print i;
+  printint(69);
+  printint(i);
 }

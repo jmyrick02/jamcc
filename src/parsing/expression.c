@@ -39,7 +39,7 @@ ASTNode* parseFunctionCall() {
 
     ASTNode *parsedArg = parseBinaryExpression();
 
-    if (parsedArg->token.valueType.value.number.numType != cur->numType)
+    if (parsedArg->token.type == NUMBER_TYPE && parsedArg->token.valueType.value.number.numType != cur->numType)
       fatal(RC_ERROR, "Parsed argument type does not match expected argument type\n");
     args->right = parsedArg;
 
