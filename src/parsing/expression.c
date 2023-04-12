@@ -70,6 +70,11 @@ ASTNode* parseTerminalNode() {
     result->token.valueType.type = NUMBER_TYPE;
     result->token.valueType.value.number.numType = entry->type.value.number.numType;
     result->token.valueType.value.number.pointerDepth = entry->type.value.number.pointerDepth;
+  } else if (GLOBAL_TOKEN.type == LEFT_PAREN) {
+    matchToken(LEFT_PAREN);
+    ASTNode *result = parseBinaryExpression();
+    matchToken(RIGHT_PAREN);
+    return result;
   } else {
     fatal(RC_ERROR, "Expected terminal token but encountered %s", TOKENTYPE_STRING[GLOBAL_TOKEN.type]);
   }
