@@ -10,10 +10,9 @@ typedef enum {
 
 #pragma once
 typedef struct LLVMValue {
-  LLVMValueType type;
+  LLVMValueType llvmType;
   long val;
-  NumberType numType;
-  int pointerDepth;
+  Type dataType;
   char *lastLoaded;
   char *name;
 } LLVMValue;
@@ -27,15 +26,15 @@ typedef struct LLVMNode {
 
 // Constructors
 
-#define CONSTRUCTOR_LLVMVALUE_NONE (LLVMValue) {NONE, -1, NUM_INT, -2, "", ""}
+#define CONSTRUCTOR_LLVMVALUE_NONE (LLVMValue) {NONE, -1}
 
-#define CONSTRUCTOR_LLVMVALUE_LABEL(index) (LLVMValue) {LABEL, index, NUM_INT, -1, "", ""}
+#define CONSTRUCTOR_LLVMVALUE_LABEL(index) (LLVMValue) {LABEL, index}
 
-#define CONSTRUCTOR_LLVMVALUE_VR(registerNumber, numType, pointerDepth) (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType, pointerDepth, "", ""}
+#define CONSTRUCTOR_LLVMVALUE_VR(registerNumber, type) (LLVMValue) {VIRTUAL_REGISTER, registerNumber, type, "", ""}
 
-#define CONSTRUCTOR_LLVMVALUE_VR_LAST_LOADED(registerNumber, numType, pointerDepth, last_loaded) (LLVMValue) {VIRTUAL_REGISTER, registerNumber, numType, pointerDepth, last_loaded, ""}
+#define CONSTRUCTOR_LLVMVALUE_VR_LAST_LOADED(registerNumber, type, last_loaded) (LLVMValue) {VIRTUAL_REGISTER, registerNumber, type, last_loaded, ""}
 
-#define CONSTRUCTOR_LLVMVALUE_CONSTANT(v, numType) (LLVMValue) {CONSTANT, v, numType, 0, "", ""}
+#define CONSTRUCTOR_LLVMVALUE_CONSTANT(v, numType) (LLVMValue) {CONSTANT, v, CONSTRUCTOR_NUMBER_TYPE(numType), "", ""}
 
 #define CONSTRUCTOR_LLVMNODE(val, next) (LLVMNode) {val, -1, next}
 

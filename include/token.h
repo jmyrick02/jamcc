@@ -7,6 +7,9 @@ typedef enum {
   RIGHT_BRACE,
   LEFT_PAREN,
   RIGHT_PAREN,
+  LEFT_BRACKET,
+  RIGHT_BRACKET,
+  ARRAY_ACCESS,
   COMMA,
   PLUS, 
   MINUS, 
@@ -56,6 +59,9 @@ static const int PRECEDENCE[] = {
   -1, // RIGHT_BRACE
   -1, // LEFT_PAREN
   -1, // RIGHT_PAREN
+  -1, // LEFT_BRACKET
+  -1, // RIGHT_BRACKET
+  -1, // ARRAY_ACCESS
   -1, // COMMA
   7, // PLUS
   7, // MINUS
@@ -105,6 +111,9 @@ static const char* TOKENTYPE_STRING[] = {
   "}", // RIGHT_BRACE
   "(", // LEFT_PAREN
   ")", // RIGHT_PAREN
+  "[", // LEFT_BRACKET
+  "]", // RIGHT_BRACKET
+  "array access", // ARRAY_ACCESS
   ",", // COMMA
   "+", // PLUS
   "-", // MINUS
@@ -193,6 +202,7 @@ static const char* NUMBERTYPE_LLVM[] = {
 typedef enum {
   FUNCTION_TYPE = 0,
   NUMBER_TYPE,
+  ARRAY_TYPE,
 } TypeType;
 
 
@@ -217,9 +227,16 @@ typedef struct Number {
 } Number;
 
 #pragma once
+typedef struct Array {
+  Number num;
+  int length;
+} Array;
+
+#pragma once
 typedef union TypeValue {
   Number number;
   Function function;
+  Array array;
 } TypeValue;
 
 #pragma once
@@ -252,6 +269,8 @@ typedef struct ASTNode {
 
 #define CONSTRUCTOR_NUMBER_REGISTER(num_type, register_num, pointer_depth) (Number) {num_type, register_num, pointer_depth}
 
+#define CONSTRUCTOR_ARRAY(number, length) (Array) {number, length}
+
 #define CONSTRUCTOR_INT_TYPE (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER(NUM_INT)}
 
 #define CONSTRUCTOR_TYPE_FROM_NUMBER(num) (Type) {NUMBER_TYPE, num}
@@ -261,6 +280,8 @@ typedef struct ASTNode {
 #define CONSTRUCTOR_NUMBER_POINTER_TYPE(num_type, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_POINTER(num_type, pointer_depth)}
 
 #define CONSTRUCTOR_NUMBER_TYPE_FULL(num_type, register_num, pointer_depth) (Type) {NUMBER_TYPE, CONSTRUCTOR_NUMBER_REGISTER(num_type, register_num, pointer_depth)}
+
+#define CONSTRUCTOR_ARRAY_TYPE(number, length) (Type) {ARRAY_TYPE, (TypeValue) { .array = CONSTRUCTOR_ARRAY(number, length) }}
 
 #define CONSTRUCTOR_ARGUMENT_NODE(num_type, next) (ArgumentNode) {"", num_type, next}
 

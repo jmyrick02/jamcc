@@ -44,18 +44,35 @@ void pushBreakLabel(LLVMValue label) {
   BREAK_LABELS = newNode;
 }
 
-LLVMValue popFreeRegister(NumberType numType, int pointerDepth) {
+int typesEqual(Type type1, Type type2) {
+  if (type1.type != type2.type)
+    return 0;
+  
+  switch (type1.type) {
+    case NUMBER_TYPE:
+      return type1.value.number.numType == type2.value.number.numType && type1.value.number.pointerDepth == type2.value.number.pointerDepth;
+    case FUNCTION_TYPE:
+      return type1.value.function.returnType == type2.value.function.returnType; // TODO check if arguments are the same
+    case ARRAY_TYPE:
+      return typesEqual(CONSTRUCTOR_TYPE_FROM_NUMBER(type1.value.array.num), CONSTRUCTOR_TYPE_FROM_NUMBER(type2.value.array.num)) && type1.value.array.length == type2.value.array.length;
+    default:
+      fatal(RC_ERROR, "Cannot compare given types\n");
+      return 0;
+  }
+}
+
+LLVMValue popFreeRegister(Type dataType) {
   LLVMNode* cur = LLVM_FREE_REGISTERS;
   LLVMNode* prev = NULL;
   while (cur != NULL) {
-    if (cur->val.numType == numType && cur->val.pointerDepth == pointerDepth)
+    if (typesEqual(cur->val.dataType, dataType)) 
       break;
 
     prev = cur;
     cur = cur->next;
   }
   if (cur == NULL)
-    fatal(RC_ERROR, "No register of type %s\n", NUMBERTYPE_STRING[numType]);
+    fatal(RC_ERROR, "No register of given type\n");
   
   if (prev == NULL) {
     LLVM_FREE_REGISTERS = cur->next;
@@ -127,6 +144,28 @@ char* numberToLLVM(Number num) {
   return res;
 }
 
+char* arrayToLLVM(Array array) {
+  char *numTypeStr = numberToLLVM(array.num);
+
+  int length = 1 + 20 + 3 + strlen(numTypeStr) + 1;
+  char *result = malloc(sizeof(char) * length);
+  
+  sprintf(result, "[%d x %s]", array.length, numTypeStr);
+  return result;
+}
+
+char* typeToLLVM(Type type) {
+  switch (type.type) {
+    case NUMBER_TYPE:
+      return numberToLLVM(type.value.number);
+    case ARRAY_TYPE:
+      return arrayToLLVM(type.value.array);
+    default:
+      fatal(RC_ERROR, "Type has no LLVM representation\n");
+      return "";
+  }
+}
+
 NumberType tokenTypeToNumberType(TokenType tokenType) {
   switch (tokenType) {
     case CHAR:
@@ -145,19 +184,19 @@ NumberType tokenTypeToNumberType(TokenType tokenType) {
 
 char* LLVMValueToLLVM(LLVMValue val) {
   char* result;
-  if (val.type == VIRTUAL_REGISTER) {
-    int length = 1 + 20 + 1; // 20 max length of long 
+  if (val.llvmType == VIRTUAL_REGISTER) {
+    int length = 1 + 20 + 1; // 20 max length of long
     result = malloc(sizeof(char) * length);
     if (strcmp(val.name, "") == 0) {
       sprintf(result, "%%%ld", val.val);
     } else {
       sprintf(result, "%%%s", val.name);
     }
-  } else if (val.type == LABEL) {
+  } else if (val.llvmType == LABEL) {
     int length = 1 + 20 + 1; // 20 max length of long
     result = malloc(sizeof(char) * length);
     sprintf(result, "L%ld", val.val);
-  } else if (val.type == CONSTANT) {
+  } else if (val.llvmType == CONSTANT) {
     int length = 20 + 1; // 20 max length of long
     result = malloc(sizeof(char) * length);
     sprintf(result, "%ld", val.val);
@@ -169,7 +208,7 @@ char* LLVMValueToLLVM(LLVMValue val) {
 }
 
 int isLocalVar(LLVMValue vr) {
-  return vr.type == VIRTUAL_REGISTER && strcmp(vr.name, "") != 0;
+  return vr.llvmType == VIRTUAL_REGISTER && strcmp(vr.name, "") != 0;
 }
 
 char *functionArgsTypeRepresentation(Function function) {
@@ -336,24 +375,21 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
     }
     return head;
   } else { // Root is a terminal 
-    NumberType numType;
-    int pointerDepth;
+    Type type;
     if (root->token.type == NUMBER_LITERAL) {
-      numType = root->token.valueType.value.number.numType;
-      pointerDepth = 0;
+      type = root->token.valueType;
     } else if (root->token.type == IDENTIFIER) {
       SymbolTableEntry* entry = getTables(root->token.val.string);
       if (entry == NULL)
         fatal(RC_ERROR, "Undeclared variable %s while generating stack entries\n", root->token.val.string);
 
-      numType = entry->type.value.number.numType;
-      pointerDepth = entry->type.value.number.pointerDepth;
+      type = entry->type;
     } else {
       return NULL;
     }
 
     LLVMNode* result = malloc(sizeof(LLVMNode));
-    *result = CONSTRUCTOR_LLVMNODE_ALIGNED(CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), numType, pointerDepth), 4, NULL);
+    *result = CONSTRUCTOR_LLVMNODE_ALIGNED(CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), type), 4, NULL);
 
     pushFreeRegister(result->val);
 
@@ -364,7 +400,7 @@ LLVMNode* getStackEntriesFromBinaryExpression(ASTNode* root) {
 void generateStackAllocation(LLVMNode* head) {
   LLVMNode* cur = head;
   while (cur != NULL) {
-    fprintf(LLVM_OUTPUT, "\t%s = alloca %s, align %d\n", LLVMValueToLLVM(cur->val), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(cur->val.numType, cur->val.pointerDepth)), cur->alignBytes);
+    fprintf(LLVM_OUTPUT, "\t%s = alloca %s, align %d\n", LLVMValueToLLVM(cur->val), typeToLLVM(cur->val.dataType), cur->alignBytes);
     cur = cur->next;
   }
 }
@@ -402,14 +438,32 @@ void generatePostamble() {
   fprintf(LLVM_OUTPUT, "!3 = !{!\"%s\"}\n", CLANG_VERSION);
 }
 
+LLVMValue generateEnsureRegisterLoaded(LLVMValue vr, int loadLevel) {
+  if (loadLevel < 0)
+    loadLevel = 0;
 
-
-LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
-  if (vr.numType == newWidth)
+  // Check if register is already loaded
+  if (vr.dataType.value.number.pointerDepth <= loadLevel)
     return vr;
 
-  if (vr.type == CONSTANT) {
-    vr.numType = newWidth;
+  // Load the register since it's unloaded
+  Type newType = vr.dataType;
+  newType.value.number.pointerDepth--;
+  LLVMValue newVR = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), newType);
+  newVR.lastLoaded = vr.lastLoaded;
+
+  fprintf(LLVM_OUTPUT, "\t; generateEnsureRegisterLoaded\n");
+  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(newVR), typeToLLVM(newVR.dataType), typeToLLVM(vr.dataType), LLVMValueToLLVM(vr));
+
+  return generateEnsureRegisterLoaded(newVR, loadLevel);
+}
+
+LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
+  if (vr.dataType.value.number.numType == newWidth)
+    return vr;
+
+  if (vr.llvmType == CONSTANT) {
+    vr.dataType.value.number.numType = newWidth;
     if (newWidth == NUM_CHAR && vr.val > MAX_CHAR_VALUE)
       vr.val = MAX_CHAR_VALUE;
     else if (newWidth == NUM_SHORT && vr.val > MAX_SHORT_VALUE)
@@ -422,133 +476,121 @@ LLVMValue generateIntResize(LLVMValue vr, NumberType newWidth) {
     return vr;
   }
 
+  vr = generateEnsureRegisterLoaded(vr, 0);
+
   int outVR = getNextVirtualRegisterNumber();
-  if (NUMBERTYPE_SIZE[newWidth] > NUMBERTYPE_SIZE[vr.numType]) {
-    fprintf(LLVM_OUTPUT, "\t%%%d = zext i%d %%%ld to i%d\n", outVR, NUMBERTYPE_SIZE[vr.numType], vr.val, NUMBERTYPE_SIZE[newWidth]);
-  } else if (NUMBERTYPE_SIZE[newWidth] < NUMBERTYPE_SIZE[vr.numType]) {
-    fprintf(LLVM_OUTPUT, "\t%%%d = trunc i%d %%%ld to i%d\n", outVR, NUMBERTYPE_SIZE[vr.numType], vr.val, NUMBERTYPE_SIZE[newWidth]);
+  if (NUMBERTYPE_SIZE[newWidth] > NUMBERTYPE_SIZE[vr.dataType.value.number.numType]) {
+    fprintf(LLVM_OUTPUT, "\t%%%d = zext i%d %s to i%d\n", outVR, NUMBERTYPE_SIZE[vr.dataType.value.number.numType], LLVMValueToLLVM(vr), NUMBERTYPE_SIZE[newWidth]);
+  } else if (NUMBERTYPE_SIZE[newWidth] < NUMBERTYPE_SIZE[vr.dataType.value.number.numType]) {
+    fprintf(LLVM_OUTPUT, "\t%%%d = trunc i%d %%%ld to i%d\n", outVR, NUMBERTYPE_SIZE[vr.dataType.value.number.numType], vr.val, NUMBERTYPE_SIZE[newWidth]);
   }
   
-  return CONSTRUCTOR_LLVMVALUE_VR(outVR, newWidth, 0);
-}
-
-LLVMValue generateEnsureRegisterLoaded(LLVMValue vr, int loadLevel) {
-  if (loadLevel < 0)
-    loadLevel = 0;
-
-  // Check if register is already loaded
-  if (vr.pointerDepth == loadLevel)
-    return vr;
-
-  // Load the register since it's unloaded
-  LLVMValue newVR = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), vr.numType, vr.pointerDepth - 1);
-  newVR.lastLoaded = vr.lastLoaded;
-
-  fprintf(LLVM_OUTPUT, "\t; generateEnsureRegisterLoaded\n");
-  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(newVR), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(newVR.numType, newVR.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(vr.numType, vr.pointerDepth)), LLVMValueToLLVM(vr));
-
-  return generateEnsureRegisterLoaded(newVR, loadLevel);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVR, CONSTRUCTOR_NUMBER_TYPE(newWidth));
 }
 
 void generateStoreLocal(SymbolTableEntry *entry, LLVMValue rvalue) {
   if (entry == NULL)
     fatal(RC_ERROR, "Storing in nonexistent local variable\n");
 
-  if (rvalue.type == CONSTANT) {
+  if (rvalue.llvmType == CONSTANT) {
     LLVMValue lvar = entry->latestLLVMValue;
 
-    rvalue = generateEnsureRegisterLoaded(rvalue, lvar.pointerDepth - 1);
-    rvalue = generateIntResize(rvalue, lvar.numType);
+    rvalue = generateEnsureRegisterLoaded(rvalue, lvar.dataType.value.number.pointerDepth - 1);
+    rvalue = generateIntResize(rvalue, lvar.dataType.value.number.numType);
 
-    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(rvalue.numType, rvalue.pointerDepth)), LLVMValueToLLVM(rvalue), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(lvar.numType, lvar.pointerDepth)), lvar.name);
+    fprintf(LLVM_OUTPUT, "\t; generateStoreLocal\n");
+    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %s\n", typeToLLVM(rvalue.dataType), LLVMValueToLLVM(rvalue), typeToLLVM(lvar.dataType), LLVMValueToLLVM(lvar));
   } else { // rvalue is a register
     entry->latestLLVMValue = rvalue;
   }
 }
 
 void generateStoreLocalIntoLLVMValue(LLVMValue var, LLVMValue rvalue) {
-  rvalue = generateEnsureRegisterLoaded(rvalue, var.pointerDepth - 1);
-  rvalue = generateIntResize(rvalue, var.numType);
+  rvalue = generateEnsureRegisterLoaded(rvalue, var.dataType.value.number.pointerDepth - 1);
+  rvalue = generateIntResize(rvalue, var.dataType.value.number.numType);
 
-  fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(rvalue.numType, rvalue.pointerDepth)), LLVMValueToLLVM(rvalue), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(var.numType, var.pointerDepth)), var.name);
+  fprintf(LLVM_OUTPUT, "\t; generateStoreLocalIntoLLVMValue\n");
+  fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %s\n", typeToLLVM(rvalue.dataType), LLVMValueToLLVM(rvalue), typeToLLVM(var.dataType), LLVMValueToLLVM(var));
 }
+
 LLVMValue generateStoreConstant(long constant, NumberType type) {
-  LLVMValue vr = popFreeRegister(type, 0);
+  LLVMValue vr = popFreeRegister(CONSTRUCTOR_NUMBER_TYPE(type));
+  fprintf(LLVM_OUTPUT, "\t; generateStoreConstant\n");
   fprintf(LLVM_OUTPUT, "\tstore %s %ld, %s* %%%ld\n", NUMBERTYPE_LLVM[type], constant, NUMBERTYPE_LLVM[type], vr.val);
 
-  vr.pointerDepth = 1;
+  vr.dataType.value.number.pointerDepth = 1;
   return generateEnsureRegisterLoaded(vr, 0);
 }
 
 LLVMValue generateAdd(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber(); 
-  fprintf(LLVM_OUTPUT, "\t%%%d = add nsw %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = add nsw %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateSub(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = sub nsw %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = sub nsw %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateMul(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = mul nsw %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = mul nsw %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateDiv(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = udiv %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = udiv %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateShl(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = shl nsw %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = shl nsw %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateAshr(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = ashr %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = ashr %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateAnd(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = and %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = and %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateOr(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = or %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = or %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateXor(LLVMValue leftVR, LLVMValue rightVR) {
   int outVRNum = getNextVirtualRegisterNumber();
-  fprintf(LLVM_OUTPUT, "\t%%%d = xor %s %s, %s\n", outVRNum, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = xor %s %s, %s\n", outVRNum, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
-  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.numType, 0);
+  return CONSTRUCTOR_LLVMVALUE_VR(outVRNum, leftVR.dataType);
 }
 
 LLVMValue generateComparison(Token comparison, LLVMValue leftVR, LLVMValue rightVR) {
   // Check for size incompatibilities
-  if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
-    leftVR = generateIntResize(leftVR, rightVR.numType); // Extend leftVR to rightVR's num type
-  } else if (NUMBERTYPE_SIZE[leftVR.numType] > NUMBERTYPE_SIZE[rightVR.numType]) {
-    rightVR = generateIntResize(rightVR, leftVR.numType); // Extend rightVR to leftVR's num type
+  if (NUMBERTYPE_SIZE[leftVR.dataType.value.number.numType] < NUMBERTYPE_SIZE[rightVR.dataType.value.number.numType]) {
+    leftVR = generateIntResize(leftVR, rightVR.dataType.value.number.numType); // Extend leftVR to rightVR's num type
+  } else if (NUMBERTYPE_SIZE[leftVR.dataType.value.number.numType] > NUMBERTYPE_SIZE[rightVR.dataType.value.number.numType]) {
+    rightVR = generateIntResize(rightVR, leftVR.dataType.value.number.numType); // Extend rightVR to leftVR's num type
   }
 
   int boolOutVR = getNextVirtualRegisterNumber();
@@ -578,24 +620,24 @@ LLVMValue generateComparison(Token comparison, LLVMValue leftVR, LLVMValue right
       break;
   }
 
-  fprintf(LLVM_OUTPUT, "\t%%%d = icmp %s %s %s, %s\n", boolOutVR, op, NUMBERTYPE_LLVM[leftVR.numType], LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
+  fprintf(LLVM_OUTPUT, "\t%%%d = icmp %s %s %s, %s\n", boolOutVR, op, typeToLLVM(leftVR.dataType), LLVMValueToLLVM(leftVR), LLVMValueToLLVM(rightVR));
 
   // Extend bool (i1) to int (i32)
-  return generateIntResize(CONSTRUCTOR_LLVMVALUE_VR(boolOutVR, NUM_BOOL, 0), NUM_INT);
+  return generateIntResize(CONSTRUCTOR_LLVMVALUE_VR(boolOutVR, CONSTRUCTOR_NUMBER_TYPE(NUM_BOOL)), NUM_INT);
 }
 
 LLVMValue generateBinaryArithmetic(Token token, LLVMValue leftVR, LLVMValue rightVR) {
   // Check for size incompatibilities
-  if (NUMBERTYPE_SIZE[leftVR.numType] < NUMBERTYPE_SIZE[rightVR.numType]) {
-    leftVR = generateIntResize(leftVR, rightVR.numType); // Extend leftVR to rightVR's num type
-  } else if (NUMBERTYPE_SIZE[leftVR.numType] > NUMBERTYPE_SIZE[rightVR.numType]) {
-    rightVR = generateIntResize(rightVR, leftVR.numType); // Extend rightVR to leftVR's num type
+  if (NUMBERTYPE_SIZE[leftVR.dataType.value.number.numType] < NUMBERTYPE_SIZE[rightVR.dataType.value.number.numType]) {
+    leftVR = generateIntResize(leftVR, rightVR.dataType.value.number.numType); // Extend leftVR to rightVR's num type
+  } else if (NUMBERTYPE_SIZE[leftVR.dataType.value.number.numType] > NUMBERTYPE_SIZE[rightVR.dataType.value.number.numType]) {
+    rightVR = generateIntResize(rightVR, leftVR.dataType.value.number.numType); // Extend rightVR to leftVR's num type
   }
     
   // Handle constants
-  if (leftVR.type == CONSTANT && rightVR.type == CONSTANT) {
+  if (leftVR.llvmType == CONSTANT && rightVR.llvmType == CONSTANT) {
     long result = evaluate(token.type, leftVR.val, rightVR.val);
-    return CONSTRUCTOR_LLVMVALUE_CONSTANT(result, leftVR.numType);
+    return CONSTRUCTOR_LLVMVALUE_CONSTANT(result, leftVR.dataType.value.number.numType);
   }
 
   LLVMValue result;
@@ -650,8 +692,10 @@ LLVMValue generateLoadGlobal(char* string) {
 
   int outVR = getNextVirtualRegisterNumber();
   fprintf(LLVM_OUTPUT, "\t; generateLoadGlobal\n");
-  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s @%s\n", outVR, numberToLLVM(CONSTRUCTOR_NUMBER_REGISTER(globalEntry->type.value.number.numType, globalEntry->type.value.number.registerNum, globalEntry->type.value.number.pointerDepth - 1)), numberToLLVM(globalEntry->type.value.number), string);
-  return CONSTRUCTOR_LLVMVALUE_VR_LAST_LOADED(outVR, globalEntry->type.value.number.numType, globalEntry->type.value.number.pointerDepth - 1, string);
+  Type newType = globalEntry->type;
+  newType.value.number.pointerDepth--;
+  fprintf(LLVM_OUTPUT, "\t%%%d = load %s, %s @%s\n", outVR, typeToLLVM(newType), typeToLLVM(globalEntry->type), string);
+  return CONSTRUCTOR_LLVMVALUE_VR_LAST_LOADED(outVR, newType, string);
 }
 
 void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
@@ -660,15 +704,19 @@ void generateStoreGlobal(char* string, LLVMValue rvalueVR) {
   if (globalEntry == NULL)
     fatal(RC_ERROR, "Undeclared variable %s encountered while storing global\n", string);
 
-  LLVMValue outVR = generateEnsureRegisterLoaded(CONSTRUCTOR_LLVMVALUE_VR(rvalueVR.val, rvalueVR.numType, rvalueVR.pointerDepth), globalEntry->type.value.number.pointerDepth - 1);
-  if (outVR.numType != globalEntry->type.value.number.numType)
+  LLVMValue outVR = generateEnsureRegisterLoaded(CONSTRUCTOR_LLVMVALUE_VR(rvalueVR.val, rvalueVR.dataType), globalEntry->type.value.number.pointerDepth - 1);
+  if (outVR.dataType.value.number.numType != globalEntry->type.value.number.numType)
     outVR = generateIntResize(outVR, globalEntry->type.value.number.numType);
 
-  fprintf(LLVM_OUTPUT, "\tstore %s %%%ld, %s @%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(outVR.numType, outVR.pointerDepth)), outVR.val, numberToLLVM(globalEntry->type.value.number), string);
+  fprintf(LLVM_OUTPUT, "\t; generateStoreGlobal\n");
+  fprintf(LLVM_OUTPUT, "\tstore %s %%%ld, %s @%s\n", typeToLLVM(outVR.dataType), outVR.val, typeToLLVM(globalEntry->type), string);
 }
 
-LLVMValue generateDeclareLocal(char* name, Number num) {
-  LLVMValue outVR = CONSTRUCTOR_LLVMVALUE_VR(-1, num.numType, num.pointerDepth);
+LLVMValue generateDeclareLocal(char* name, Type type) {
+  if (type.type != NUMBER_TYPE && type.type != ARRAY_TYPE)
+    fatal(RC_ERROR, "Invalid type for local variable\n");
+
+  LLVMValue outVR = CONSTRUCTOR_LLVMVALUE_VR(-1, type);
   outVR.name = malloc(sizeof(char) * strlen(name));
   strcpy(outVR.name, name);
 
@@ -678,7 +726,7 @@ LLVMValue generateDeclareLocal(char* name, Number num) {
   temp->next = NULL;
   generateStackAllocation(temp);
 
-  outVR.pointerDepth++;
+  outVR.dataType.value.number.pointerDepth++;
 
   return outVR;
 }
@@ -686,36 +734,37 @@ LLVMValue generateDeclareLocal(char* name, Number num) {
 void generateStoreDereference(LLVMValue destination, LLVMValue value) {
   // Load local variables once
   if (isLocalVar(value))
-    value = generateEnsureRegisterLoaded(value, value.pointerDepth - 1);
+    value = generateEnsureRegisterLoaded(value, value.dataType.value.number.pointerDepth - 1);
 
-  destination = generateEnsureRegisterLoaded(destination, value.pointerDepth + 1);
+  destination = generateEnsureRegisterLoaded(destination, value.dataType.value.number.pointerDepth + 1);
 
-  if (strcmp(destination.lastLoaded, "") == 0 || destination.pointerDepth == value.pointerDepth + 1) {
-    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%ld\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(value.numType, value.pointerDepth)), LLVMValueToLLVM(value), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(destination.numType, destination.pointerDepth)), destination.val);
+  fprintf(LLVM_OUTPUT, "\tgenerateStoreDereference\n");
+  if (strcmp(destination.lastLoaded, "") == 0 || destination.dataType.value.number.pointerDepth == value.dataType.value.number.pointerDepth + 1) {
+    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s %%%ld\n", typeToLLVM(value.dataType), LLVMValueToLLVM(value), typeToLLVM(destination.dataType), destination.val);
   } else {
-    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s* @%s\n", numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(value.numType, value.pointerDepth)), LLVMValueToLLVM(value), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(destination.numType, destination.pointerDepth)), destination.lastLoaded);
+    fprintf(LLVM_OUTPUT, "\tstore %s %s, %s* @%s\n", typeToLLVM(value.dataType), LLVMValueToLLVM(value), typeToLLVM(destination.dataType), destination.lastLoaded);
   }
 }
 
 void generateLabel(LLVMValue label) {
-  if (label.type != LABEL)
+  if (label.llvmType != LABEL)
     fatal(RC_ERROR, "Expected label for label\n");
 
   fprintf(LLVM_OUTPUT, "\t%s:\n", LLVMValueToLLVM(label));
 }
 
 void generateJump(LLVMValue label) {
-  if (label.type != LABEL)
+  if (label.llvmType != LABEL)
     fatal(RC_ERROR, "Expected label for jump\n");
 
   fprintf(LLVM_OUTPUT, "\tbr label %%%s\n", LLVMValueToLLVM(label));
 }
 
 void generateConditionalJump(LLVMValue conditionVR, LLVMValue trueLabel, LLVMValue falseLabel) {
-  if (trueLabel.type != LABEL || falseLabel.type != LABEL)
+  if (trueLabel.llvmType != LABEL || falseLabel.llvmType != LABEL)
     fatal(RC_ERROR, "Expected labels in conditional jump\n");
   
-  fprintf(LLVM_OUTPUT, "\tbr %s %%%ld, label %%%s, label %%%s\n", NUMBERTYPE_LLVM[conditionVR.numType], conditionVR.val, LLVMValueToLLVM(trueLabel), LLVMValueToLLVM(falseLabel));
+  fprintf(LLVM_OUTPUT, "\tbr %s %%%ld, label %%%s, label %%%s\n", typeToLLVM(conditionVR.dataType), conditionVR.val, LLVMValueToLLVM(trueLabel), LLVMValueToLLVM(falseLabel));
 }
 
 LLVMValue generateCompareJump(Token comparison, LLVMValue leftVR, LLVMValue rightVR, LLVMValue falseLabel) {
@@ -736,7 +785,7 @@ void generateReturn(LLVMValue returnValue, char* functionName) {
     fprintf(LLVM_OUTPUT, "\tret void\n");
   } else {
     returnValue = generateEnsureRegisterLoaded(returnValue, 0);
-    fprintf(LLVM_OUTPUT, "\tret %s %s\n", NUMBERTYPE_LLVM[returnValue.numType], LLVMValueToLLVM(returnValue)); 
+    fprintf(LLVM_OUTPUT, "\tret %s %s\n", typeToLLVM(returnValue.dataType), LLVMValueToLLVM(returnValue)); 
   }
 
   LLVM_VIRTUAL_REGISTER_NUMBER++;
@@ -760,7 +809,7 @@ LLVMValue generateFunctionCall(char* name, LLVMNode *args) {
   fprintf(LLVM_OUTPUT, "\t");
 
   if (entry->type.value.function.returnType != VOID) {
-    result = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), tokenTypeToNumberType(entry->type.value.function.returnType), 0);
+    result = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), CONSTRUCTOR_NUMBER_TYPE(tokenTypeToNumberType(entry->type.value.function.returnType)));
 
     fprintf(LLVM_OUTPUT, "%%%ld = ", result.val);
   }
@@ -773,38 +822,45 @@ LLVMValue generateGetAddress(char* identifier) {
   SymbolTableEntry* entry = getTables(identifier);
   if (entry == NULL)
     fatal(RC_ERROR, "Getting address of undeclared identifier %s\n", identifier);
-  if (entry->type.type != NUMBER_TYPE)
-    fatal(RC_ERROR, "Can only get the address of numbers\n");
+  if (entry->type.type != NUMBER_TYPE && entry->type.type != ARRAY_TYPE)
+    fatal(RC_ERROR, "Can only get the address of numbers and arrays\n");
 
-  LLVMValue lv = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), entry->latestLLVMValue.numType, entry->latestLLVMValue.pointerDepth);
+  LLVMValue lv = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), entry->latestLLVMValue.dataType);
 
-  lv.pointerDepth--;
+  lv.dataType.value.number.pointerDepth--;
 
-  fprintf(LLVM_OUTPUT, "\t%s = getelementptr inbounds %s, %s %s\n", LLVMValueToLLVM(lv), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(lv.numType, lv.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(entry->latestLLVMValue.numType, entry->latestLLVMValue.pointerDepth)), LLVMValueToLLVM(entry->latestLLVMValue));
+  fprintf(LLVM_OUTPUT, "\t%s = getelementptr inbounds %s, %s %s\n", LLVMValueToLLVM(lv), typeToLLVM(lv.dataType), typeToLLVM(entry->latestLLVMValue.dataType), LLVMValueToLLVM(entry->latestLLVMValue));
 
-  lv.pointerDepth++;
+  lv.dataType.value.number.pointerDepth++;
   return lv;
 }
 
 LLVMValue generateDereference(LLVMValue value) {
-  LLVMValue out = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), value.numType, value.pointerDepth - 1);
+  Type newType = value.dataType;
+  newType.value.number.pointerDepth--;
+  LLVMValue out = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), newType);
 
   fprintf(LLVM_OUTPUT, "\t; generateDereference\n");
-  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(out), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(out.numType, out.pointerDepth)), numberToLLVM(CONSTRUCTOR_NUMBER_POINTER(value.numType, value.pointerDepth)), LLVMValueToLLVM(value));
+  fprintf(LLVM_OUTPUT, "\t%s = load %s, %s %s\n", LLVMValueToLLVM(out), typeToLLVM(out.dataType), typeToLLVM(value.dataType), LLVMValueToLLVM(value));
 
   return out;
 }
 
-void generatePrintInt(LLVMValue vr) {
-  vr = generateEnsureRegisterLoaded(vr, 0);
-  vr = generateIntResize(vr, NUM_INT);
+LLVMValue generateArrayAccess(char* name, LLVMValue offset) {
+  SymbolTableEntry *entry = getTables(name);
+  if (entry == NULL)
+    fatal(RC_ERROR, "Accessing non-existent array %s\n", name);
+  if (entry->type.type != ARRAY_TYPE)
+    fatal(RC_ERROR, "Attempting to access non-array %s as an array\n", name);
 
-  LLVMNode* temp = malloc(sizeof(LLVMNode));
-  temp->val = vr;
-  temp->alignBytes = 4;
-  temp->next = NULL;
+  offset = generateIntResize(offset, NUM_LONG);
 
-  generateFunctionCall("printint", temp); 
+  LLVMValue lv = CONSTRUCTOR_LLVMVALUE_VR(getNextVirtualRegisterNumber(), CONSTRUCTOR_TYPE_FROM_NUMBER(entry->type.value.array.num));
+
+  fprintf(LLVM_OUTPUT, "\t%s = getelementptr inbounds %s, %s* %s, i64 0, %s %s\n", LLVMValueToLLVM(lv), typeToLLVM(entry->type), typeToLLVM(entry->type), LLVMValueToLLVM(entry->latestLLVMValue), typeToLLVM(offset.dataType), LLVMValueToLLVM(offset));
+
+  lv.dataType.value.number.pointerDepth++;
+  return lv;
 }
 
 void generateFunctionPreamble(char* name) {
@@ -817,7 +873,7 @@ void generateFunctionPreamble(char* name) {
   ArgumentNode *cur = entry->type.value.function.args;
   int i = 0;
   while (cur != NULL) {
-    LLVMValue arg = CONSTRUCTOR_LLVMVALUE_VR(-1, cur->numType, 0);
+    LLVMValue arg = CONSTRUCTOR_LLVMVALUE_VR(-1, CONSTRUCTOR_NUMBER_TYPE(cur->numType));
     arg.name = malloc(sizeof(char) * strlen(cur->name));
     strcpy(arg.name, cur->name);
 
@@ -827,9 +883,11 @@ void generateFunctionPreamble(char* name) {
     temp->next = NULL;
     generateStackAllocation(temp);
 
-    arg.pointerDepth++;
+    arg.dataType.value.number.pointerDepth++;
 
-    generateStoreLocalIntoLLVMValue(arg, CONSTRUCTOR_LLVMVALUE_VR(i, arg.numType, arg.pointerDepth - 1));
+    Type newType = arg.dataType;
+    newType.value.number.pointerDepth--;
+    generateStoreLocalIntoLLVMValue(arg, CONSTRUCTOR_LLVMVALUE_VR(i, newType));
 
     SymbolTableEntry *entry = getTables(cur->name);
     if (entry == NULL)
@@ -856,7 +914,7 @@ void generateFunctionPostamble(char* name) {
 
   fprintf(LLVM_OUTPUT, "}\n\n");
 }
-LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperation) {
+LLVMValue generateFromAST(ASTNode* root, LLVMValue valueFromLeftChild, TokenType parentOperation) {
   if (root == NULL)
     return CONSTRUCTOR_LLVMVALUE_NONE;
 
@@ -883,7 +941,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
   if (root->left != NULL)
     leftVR = generateFromAST(root->left, CONSTRUCTOR_LLVMVALUE_NONE, root->token.type);
   if (root->right != NULL)
-    rightVR = generateFromAST(root->right, CONSTRUCTOR_LLVMVALUE_NONE, root->token.type);
+    rightVR = generateFromAST(root->right, leftVR, root->token.type);
 
   switch (root->token.type) {
     case PLUS:
@@ -906,10 +964,10 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
     case GEQ:
       {
         int pointerDepth;
-        if (leftVR.pointerDepth <= rightVR.pointerDepth) {
-          pointerDepth = leftVR.pointerDepth;
+        if (leftVR.dataType.value.number.pointerDepth <= rightVR.dataType.value.number.pointerDepth) {
+          pointerDepth = leftVR.dataType.value.number.pointerDepth;
         } else {
-          pointerDepth = rightVR.pointerDepth;
+          pointerDepth = rightVR.dataType.value.number.pointerDepth;
         }
         if (isLocalVar(leftVR)) {
           pointerDepth--;
@@ -918,7 +976,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
         leftVR = generateEnsureRegisterLoaded(leftVR, pointerDepth);
         rightVR = generateEnsureRegisterLoaded(rightVR, pointerDepth);
         if (parentOperation == IF || parentOperation == WHILE) {
-          return generateCompareJump(root->token, leftVR, rightVR, label);
+          return generateCompareJump(root->token, leftVR, rightVR, valueFromLeftChild);
         } else {
           return generateComparison(root->token, leftVR, rightVR);
         }
@@ -928,7 +986,7 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
         SymbolTableEntry *entry = getTables(root->token.val.string);
         if (entry == NULL)
           fatal(RC_ERROR, "Declaring variable '%s' but not in symbol tables\n", root->token.val.string);
-        entry->latestLLVMValue = generateDeclareLocal(root->token.val.string, entry->type.value.number);
+        entry->latestLLVMValue = generateDeclareLocal(root->token.val.string, entry->type);
         return CONSTRUCTOR_LLVMVALUE_NONE;
       }
     case NUMBER_LITERAL:
@@ -958,6 +1016,9 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
           }
         } else if (root->right->token.type == DEREFERENCE) {
           generateStoreDereference(rightVR, leftVR);
+          return leftVR;
+        } else if (root->right->token.type == ARRAY_ACCESS) {
+          generateStoreLocalIntoLLVMValue(rightVR, leftVR);
           return leftVR;
         }
         fatal(RC_ERROR, "Expected identifier or derefence right child in assignment\n");
@@ -1013,10 +1074,15 @@ LLVMValue generateFromAST(ASTNode* root, LLVMValue label, TokenType parentOperat
       return generateGetAddress(root->token.val.string);
     case DEREFERENCE:
       if (root->isRVal) {
+        SymbolTableEntry *entry = getTables(root->token.val.string);
+        if (entry != NULL && entry->type.type == ARRAY_TYPE)
+          return leftVR;
         return generateDereference(generateDereference(leftVR));
       } else {
         return leftVR;
       }
+    case ARRAY_ACCESS:
+      return generateArrayAccess(root->token.val.string, leftVR);
     case UNKNOWN_TOKEN:
       return CONSTRUCTOR_LLVMVALUE_NONE;
     default:

@@ -48,7 +48,26 @@ ASTNode* parseFunctionCall() {
 
   matchToken(RIGHT_PAREN);
 
-  
+  return result;
+}
+
+ASTNode* parseArrayAccess() {
+  Token identifier = matchToken(IDENTIFIER);
+  char* name = identifier.val.string;
+
+  SymbolTableEntry* entry = getTables(name);
+  if (entry == NULL) {
+    fatal(RC_ERROR, "Undeclared array %s\n", name);
+  }
+
+  matchToken(LEFT_BRACKET);
+  ASTNode* index = parseBinaryExpression();
+  matchToken(RIGHT_BRACKET);
+
+  ASTNode *result = malloc(sizeof(ASTNode));
+  Token resultToken = CONSTRUCTOR_TOKEN_EMPTY(ARRAY_ACCESS);
+  strcpy(resultToken.val.string, name);
+  *result = CONSTRUCTOR_ASTNODE(resultToken, index, NULL, NULL);
   return result;
 }
 
@@ -63,8 +82,11 @@ ASTNode* parseTerminalNode() {
     SymbolTableEntry* entry = getTables(GLOBAL_TOKEN.val.string);
     if (entry == NULL)
       fatal(RC_ERROR, "Undeclared variable %s", GLOBAL_TOKEN.val.string);
-    if (entry->type.type == FUNCTION_TYPE)
+    if (entry->type.type == FUNCTION_TYPE) {
       return parseFunctionCall();
+    } else if (entry->type.type == ARRAY_TYPE) {
+      return parseArrayAccess();
+    }
 
     *result = CONSTRUCTOR_ASTNODE(GLOBAL_TOKEN, NULL, NULL, NULL);
     result->token.valueType.type = NUMBER_TYPE;
@@ -139,7 +161,7 @@ ASTNode* prattParse(int prevPrecedence) {
   ASTNode* left = prefixOperatorPassthrough(); // parses terminal node with possible prefix operators 
   
   TokenType tokenType = getCurExpressionTokenType();
-  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && tokenType != COMMA && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
+  while (tokenType != SEMICOLON && tokenType != RIGHT_PAREN && tokenType != END && tokenType != COMMA && tokenType != RIGHT_BRACKET && (checkPrecedence(tokenType) > prevPrecedence || (tokenType == ASSIGN && checkPrecedence(tokenType) == prevPrecedence))) {
     scan();
 
     ASTNode* right = prattParse(PRECEDENCE[tokenType]);

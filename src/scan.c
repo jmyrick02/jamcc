@@ -98,7 +98,7 @@ void scanIdentifier(char c, char* buffer, int maxLength) {
   int buffer_index = 0;
 
   // while buffer is free and c is alphanumeric or '_'
-  while (buffer_index < maxLength && (c == '_' || (c - 'A' >= 0 && c - 'z' <= 0) || (c - '0' >= 0 && c - '9' <= 0))) {
+  while (buffer_index < maxLength && (c == '_' || (c - 'A' >= 0 && c - 'Z' <= 0) || (c - 'a' >= 0 && c - 'z' <= 0) || (c - '0' >= 0 && c - '9' <= 0))) {
     buffer[buffer_index] = c;
     buffer_index++;
     c = next();
@@ -151,6 +151,12 @@ void scan() {
       break;
     case ')':
       token.type = RIGHT_PAREN;
+      break;
+    case '[':
+      token.type = LEFT_BRACKET;
+      break;
+    case ']':
+      token.type = RIGHT_BRACKET;
       break;
     case ',':
       token.type = COMMA;

@@ -54,6 +54,17 @@ ASTNode *parseDeclarationStatement() {
   entry.type = CONSTRUCTOR_NUMBER_TYPE_FULL(num.numType, num.registerNum, num.pointerDepth);
   entry.next = NULL;
 
+  if (GLOBAL_TOKEN.type == LEFT_BRACKET) {
+    matchToken(LEFT_BRACKET);
+    if (GLOBAL_TOKEN.type == NUMBER_LITERAL) {
+      entry.type = CONSTRUCTOR_ARRAY_TYPE(GLOBAL_TOKEN.valueType.value.number, GLOBAL_TOKEN.val.num);
+      matchToken(NUMBER_LITERAL);
+    } else {
+      fatal(RC_ERROR, "Arrays must be declared with constant size\n");
+    }
+    matchToken(RIGHT_BRACKET);
+  }
+
   addToTables(entry);
   
   Token resultToken = CONSTRUCTOR_TOKEN_EMPTY(VAR_DECL);

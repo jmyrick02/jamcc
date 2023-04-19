@@ -41,7 +41,7 @@ ASTNode* parseFunctionDeclaration() {
     }
 
     // Add argument to function's local symbol table
-    SymbolTableEntry entry = CONSTRUCTOR_SYMBOL_TABLE_ENTRY(CONSTRUCTOR_TYPE_FROM_NUMBER(argType), NULL, CONSTRUCTOR_LLVMVALUE_VR(-1, argType.numType, argType.pointerDepth));
+    SymbolTableEntry entry = CONSTRUCTOR_SYMBOL_TABLE_ENTRY(CONSTRUCTOR_TYPE_FROM_NUMBER(argType), NULL, CONSTRUCTOR_LLVMVALUE_VR(-1, CONSTRUCTOR_TYPE_FROM_NUMBER(argType)));
     strcpy(entry.identifierName, argIdentifier.val.string);
     entry.latestLLVMValue.name = malloc(sizeof(char) * strlen(argIdentifier.val.string));
     strcpy(entry.latestLLVMValue.name, argIdentifier.val.string);
