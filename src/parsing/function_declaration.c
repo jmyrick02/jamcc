@@ -15,7 +15,6 @@ ASTNode* parseFunctionDeclaration() {
     fatal(RC_ERROR, "Function %s already declared\n", identifier.val.string);
   scan();
 
-  
   matchToken(LEFT_PAREN);
 
   // Parse arguments

@@ -93,6 +93,62 @@ long scanIntegerLiteral(char c, NumberType* numTypeOut) {
   return val;
 }
 
+long scanCharLiteral() {
+  long result;
+
+  char c = next();
+  result = c;
+  if (c == '\\') {
+    c = next();
+    switch (c) {
+      case 'a':
+        result = 0x07;
+        break;
+      case 'b':
+        result = 0x08;
+        break;
+      case 'e':
+        result = 0x1B;
+        break;
+      case 'f':
+        result = 0x0C;
+        break;
+      case 'n':
+        result = 0x0A;
+        break;
+      case 'r':
+        result = 0x0D;
+        break;
+      case 't':
+        result = 0x09;
+        break;
+      case 'v':
+        result = 0x0B;
+        break;
+      case '\\':
+        result = 0x5C;
+        break;
+      case '\'':
+        result = 0x27;
+        break;
+      case '"':
+        result = 0x22;
+        break;
+      case '?':
+        result = 0x3F;
+        break;
+      default:
+        fatal(RC_ERROR, "Unsupported escape sequence in character literal\n");
+    }
+  }
+
+  c = next();
+  if (c != '\'')
+    fatal(RC_ERROR, "Invalid character literal\n");
+
+  return result;
+}
+
 // Scan identifier into buffer with space maxLength
 void scanIdentifier(char c, char* buffer, int maxLength) {
   int buffer_index = 0;
@@ -229,6 +285,11 @@ void scan() {
       token.type = NUMBER_LITERAL;
       token.valueType = CONSTRUCTOR_INT_TYPE;
       token.val = CONSTRUCTOR_TOKENVAL_NUM(scanIntegerLiteral(c, &token.valueType.value.number.numType));
+      break;
+    case '\'':
+      token.type = NUMBER_LITERAL;
+      token.valueType = CONSTRUCTOR_CHAR_TYPE;
+      token.val = CONSTRUCTOR_TOKENVAL_NUM(scanCharLiteral());
       break;
     case ';':
       token.type = SEMICOLON;
